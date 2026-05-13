@@ -459,6 +459,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   <button class="nav-tab"        onclick="switchTab('lista',this)">📋 Listado</button>
   <button class="nav-tab"        onclick="switchTab('resumen',this)">📊 Resumen</button>
   <div class="nav-right">
+    <button class="btn btn-ghost btn-sm" onclick="clearFillTasks()" title="Eliminar todos los bloques de auto-relleno">✕ Limpiar relleno</button>
+    <button class="btn btn-primary btn-sm" onclick="triggerAutoFill()" title="Distribuir tareas de relleno en los huecos libres">🔄 Auto-rellenar</button>
     <button class="btn btn-ghost btn-sm" onclick="exportJSON()">⬇ Exportar</button>
     <button class="btn btn-ghost btn-sm" onclick="document.getElementById('importFile').click()">⬆ Importar</button>
     <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
@@ -1023,7 +1025,6 @@ function renderPills(){
 
 // ── Week view ──────────────────────────────────────────────────────────────
 function renderWeekView(){
-  autoPlaceFillTasks();
   renderAlerts();
   renderPills();
   const days=getWeekDays(weekStart);
@@ -1238,44 +1239,78 @@ function onDragOver(e){
 function onDragLeave(e){
   e.currentTarget.classList.remove("drag-over");
 }
-function onDrop(e,dateStr){
+function snapHour(h) {
+  return Math.round(h * 2) / 2; // snap to 30min grid
+}
+
+function clearFillForDay(dateStr) {
+  // Remove all fill task planificacion entries for this day
+  state.tasks.forEach(t=>{
+    if(t.tipo==="relleno" && t.planificacion)
+      t.planificacion = t.planificacion.filter(p=>p.fecha!==dateStr);
+  });
+}
+
+function onDrop(e, dateStr){
   e.preventDefault();
   e.currentTarget.classList.remove("drag-over");
   if(!dragData) return;
 
-  const col=e.currentTarget;
-  const rect=col.getBoundingClientRect();
-  const scrollTop=document.getElementById("timelineContainer").scrollTop;
-  const relY=e.clientY - rect.top + scrollTop;
-  let dropHour=H_START + relY/HOUR_PX;
-  dropHour=Math.round(dropHour*2)/2; // snap to 30min
-  dropHour=Math.max(H_START,Math.min(H_END-0.5,dropHour));
+  // Calculate drop hour from mouse position
+  const rect = e.currentTarget.getBoundingClientRect();
+  const scrollTop = document.getElementById("timelineContainer").scrollTop;
+  const relY = e.clientY - rect.top + scrollTop;
+  let dropHour = snapHour(H_START + relY / HOUR_PX);
+  dropHour = Math.max(H_START, Math.min(H_END - 0.5, dropHour));
 
-  if(dragData.type==="backlog"){
-    // Add task to this day at dropped hour
-    const t=state.tasks.find(x=>x.id===dragData.id);
-    if(!t) return;
-    const planned=(t.planificacion||[]).reduce((s,p)=>s+p.horas,0);
-    const remaining=(t.esfuerzo||0)-planned;
-    if(remaining<=0){ toast("Esta tarea ya está completamente planificada","warn"); return; }
+  const affectedDays = new Set([dateStr]);
+
+  if(dragData.type === "backlog"){
+    const t = state.tasks.find(x=>x.id===dragData.id);
+    if(!t) { dragData=null; return; }
+    const planned = (t.planificacion||[]).reduce((s,p)=>s+p.horas, 0);
+    const remaining = t.esfuerzo ? (t.esfuerzo - planned) : 2;
+    if(t.esfuerzo && remaining <= 0){
+      toast("Esta tarea ya está completamente planificada","warn");
+      dragData=null; return;
+    }
     if(!t.planificacion) t.planificacion=[];
-    t.planificacion.push({fecha:dateStr,horaInicio:dropHour,horas:Math.min(remaining,2)});
-    toast(`✓ ${t.tarea} añadida al ${new Date(dateStr+"T12:00:00").toLocaleDateString("es-ES",{weekday:"short",day:"numeric"})}`);
-  } else if(dragData.type==="planned"){
-    // Move existing plan entry
-    const t=state.tasks.find(x=>x.id===dragData.taskId);
-    if(!t||!t.planificacion) return;
-    const idx=t.planificacion.findIndex(p=>p.fecha===dragData.fromDate&&p.horaInicio===dragData.fromHour);
-    if(idx>=0){ t.planificacion[idx].fecha=dateStr; t.planificacion[idx].horaInicio=dropHour; }
-  } else if(dragData.type==="block"){
-    const b=state.blocks.find(x=>x.id===dragData.blockId);
-    if(!b) return;
-    b.fecha=dateStr; b.horaInicio=dropHour;
-    if(b.recurrente!=="none") b.recurrente="none"; // once moved, it's a one-off
+    t.planificacion.push({fecha:dateStr, horaInicio:dropHour, horas:Math.min(remaining||2, 2)});
+    toast(`✓ ${t.tarea} → ${new Date(dateStr+"T12:00:00").toLocaleDateString("es-ES",{weekday:"short",day:"numeric"})}`);
+
+  } else if(dragData.type === "planned"){
+    const t = state.tasks.find(x=>x.id===dragData.taskId);
+    if(!t||!t.planificacion){ dragData=null; return; }
+    // Find the entry by matching date AND hour (use closest match)
+    let bestIdx = -1, bestDiff = Infinity;
+    t.planificacion.forEach((p,i)=>{
+      if(p.fecha===dragData.fromDate){
+        const diff = Math.abs(p.horaInicio - dragData.fromHour);
+        if(diff < bestDiff){ bestDiff=diff; bestIdx=i; }
+      }
+    });
+    if(bestIdx >= 0){
+      affectedDays.add(t.planificacion[bestIdx].fecha);
+      t.planificacion[bestIdx].fecha = dateStr;
+      t.planificacion[bestIdx].horaInicio = dropHour;
+    }
+
+  } else if(dragData.type === "block"){
+    const b = state.blocks.find(x=>x.id===dragData.blockId);
+    if(!b){ dragData=null; return; }
+    affectedDays.add(b.fecha);
+    b.fecha = dateStr;
+    b.horaInicio = dropHour;
+    if(b.recurrente !== "none") b.recurrente = "none"; // one-off after move
   }
 
-  dragData=null;
-  markDirty(); renderAll();
+  // Clear fill tasks for all affected days so they don't overlap
+  affectedDays.forEach(d => clearFillForDay(d));
+
+  dragData = null;
+  markDirty();
+  renderAll();
+  toast("💡 Pulsa '🔄 Auto-rellenar' para redistribuir las tareas de relleno", "warn");
 }
 
 function removeTaskFromDay(taskId,dateStr){
@@ -1461,6 +1496,20 @@ function completeTask(id){
   markDirty(); renderAll(); toast("✓ Tarea completada");
 }
 
+function triggerAutoFill(){
+  const fillTasks = state.tasks.filter(t=>t.tipo==="relleno"&&!t.dependencia);
+  if(!fillTasks.length){ toast("No hay tareas de relleno definidas","warn"); return; }
+  autoPlaceFillTasks();
+  markDirty(); renderAll();
+  const total = fillTasks.reduce((s,t)=>(t.planificacion||[]).length+s,0);
+  toast(`✓ Relleno aplicado — ${total} bloques distribuidos`);
+}
+
+function clearFillTasks(){
+  state.tasks.forEach(t=>{ if(t.tipo==="relleno") t.planificacion=[]; });
+  markDirty(); renderAll(); toast("✓ Auto-relleno eliminado");
+}
+
 // ── Confirm ────────────────────────────────────────────────────────────────
 function confirmDelete(title,onOk){
   document.getElementById("confirmTitle").textContent=title;
@@ -1517,7 +1566,6 @@ function renderList(){
 
 // ── Resumen ────────────────────────────────────────────────────────────────
 function renderResumen(){
-  autoPlaceFillTasks();
   const days=getWeekDays(weekStart);
   const totalPlanned=state.tasks.reduce((s,t)=>(t.planificacion||[]).reduce((ss,p)=>ss+p.horas,s),0);
   const totalEsfuerzo=state.tasks.reduce((s,t)=>s+(t.esfuerzo||0),0);
