@@ -449,7 +449,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
     </div>
     <button class="btn btn-purple btn-sm" onclick="openModal('blockModal')">+ Bloque</button>
     <button class="btn btn-primary btn-sm" onclick="openTaskModal()">+ Tarea</button>
-    <a href="taskboard-guia.html" target="_blank" class="btn btn-dark btn-sm" style="text-decoration:none">📖 Guía</a>
+    <a href="taskboard-v2-guia.html" target="_blank" class="btn btn-dark btn-sm" style="text-decoration:none">📖 Guía</a>
   </div>
 </header>
 
@@ -839,35 +839,65 @@ function closeAlerts(e){ if(!e||e.target===e.currentTarget||e.target.tagName==="
 // ── Auto-place fill tasks ──────────────────────────────────────────────────
 function autoPlaceFillTasks() {
   const days = getWeekDays(weekStart);
-  // Reset all fill task planificacion
+  // Reset fill task planificacion
   state.tasks.forEach(t=>{ if(t.tipo==="relleno") t.planificacion=[]; });
   const fillTasks = state.tasks.filter(t=>t.tipo==="relleno"&&!t.dependencia);
   if(!fillTasks.length) return;
 
   days.forEach(d=>{
-    const free = getFreeHours(d);
-    if(free < 0.5) return;
-
-    // Find where free slots start (after last block/plan)
     const wh = getWorkHours(d);
-    const allBlocks = getBlocksForDay(d);
-    const allPlanned = getPlannedForDay(d);
-    let cursor = wh.start;
-    [...allBlocks,...allPlanned].sort((a,b)=>(a.horaInicio||0)-(b.horaInicio||0)).forEach(b=>{
-      const s = b.horaInicio||0;
-      const e = s+(b.duracion||b.horas||0);
-      if(s<=cursor) cursor=Math.max(cursor,e);
-    });
-    cursor = Math.min(cursor, wh.end);
 
-    // Distribute free hours proportionally among fill tasks
-    const share = free / fillTasks.length;
+    // Build list of busy intervals from blocks + non-fill planned tasks
+    const busy = [];
+    getBlocksForDay(d).forEach(b=>{
+      busy.push({s: b.horaInicio, e: b.horaInicio + b.duracion});
+    });
+    getPlannedForDay(d).forEach(p=>{
+      if(p.task.tipo !== "relleno")
+        busy.push({s: p.horaInicio, e: p.horaInicio + p.horas});
+    });
+    busy.sort((a,b)=>a.s-b.s);
+
+    // Find free slots within work hours
+    const freeSlots = [];
+    let cursor = wh.start;
+    busy.forEach(b=>{
+      if(b.s > cursor + 0.25) freeSlots.push({s: cursor, e: Math.min(b.s, wh.end)});
+      cursor = Math.max(cursor, b.e);
+    });
+    if(cursor < wh.end) freeSlots.push({s: cursor, e: wh.end});
+
+    // Total free hours
+    const totalFree = freeSlots.reduce((s,slot)=>s+(slot.e-slot.s),0);
+    if(totalFree < 0.5) return;
+
+    // Share per fill task (proportional, min 0.5h)
+    const share = Math.round((totalFree / fillTasks.length) * 2) / 2;
+    if(share < 0.5) return;
+
+    // Place each fill task in the next available free slot
+    let slotIdx = 0;
+    let slotCursor = freeSlots[0]?.s ?? wh.start;
+
     fillTasks.forEach(t=>{
-      const toPlace = Math.round(Math.max(0.5,share)*2)/2; // round to 0.5
-      if(cursor+toPlace > wh.end) return;
+      let remaining = share;
       if(!t.planificacion) t.planificacion=[];
-      t.planificacion.push({fecha:d, horaInicio:cursor, horas:toPlace});
-      cursor += toPlace;
+
+      while(remaining >= 0.5 && slotIdx < freeSlots.length) {
+        const slot = freeSlots[slotIdx];
+        const available = slot.e - slotCursor;
+        if(available < 0.5) { slotIdx++; slotCursor = freeSlots[slotIdx]?.s ?? wh.end; continue; }
+
+        const toPlace = Math.min(remaining, available);
+        const rounded = Math.round(toPlace * 2) / 2;
+        if(rounded < 0.5) break;
+
+        t.planificacion.push({fecha: d, horaInicio: slotCursor, horas: rounded});
+        slotCursor += rounded;
+        remaining  -= rounded;
+
+        if(slotCursor >= slot.e) { slotIdx++; slotCursor = freeSlots[slotIdx]?.s ?? wh.end; }
+      }
     });
   });
 }
