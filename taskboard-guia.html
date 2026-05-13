@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Guía TaskBoard · Juanpi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f1f5f9; --surface: #fff; --border: #e2e8f0;
+  --text: #0f172a; --text2: #334155; --text3: #64748b; --text4: #94a3b8;
+  --accent: #3b82f6; --green: #22c55e; --purple: #8b5cf6;
+  --red: #ef4444; --orange: #f97316;
+  --r: 10px; --r2: 14px;
+  --shadow: 0 1px 4px rgba(0,0,0,.07);
+}
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+
+/* Header */
+.header { background: #0f172a; padding: 0 32px; height: 56px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 10; }
+.logo-icon { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg,#3b82f6,#8b5cf6); display: flex; align-items: center; justify-content: center; font-size: 15px; color: white; }
+.logo-name { font-size: 15px; font-weight: 700; color: white; letter-spacing: -.02em; }
+.logo-sub  { font-size: 10px; color: #475569; }
+.header-badge { margin-left: auto; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.1); border-radius: 20px; padding: 4px 12px; font-size: 11px; color: #94a3b8; }
+
+/* Layout */
+.wrap { max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
+
+/* Hero */
+.hero { text-align: center; margin-bottom: 48px; }
+.hero-tag { display: inline-flex; align-items: center; gap: 6px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 20px; padding: 4px 14px; font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 16px; }
+.hero h1 { font-size: 32px; font-weight: 700; letter-spacing: -.03em; color: var(--text); margin-bottom: 10px; }
+.hero p  { font-size: 15px; color: var(--text3); max-width: 520px; margin: 0 auto; }
+
+/* Section */
+.section { margin-bottom: 40px; }
+.section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+.section-num { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: white; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.section-title { font-size: 18px; font-weight: 700; }
+.section-sub { font-size: 12px; color: var(--text3); margin-top: 1px; }
+
+/* Cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.card {
+  background: white; border: 1px solid var(--border); border-radius: var(--r2);
+  padding: 18px; box-shadow: var(--shadow);
+}
+.card-icon { font-size: 22px; margin-bottom: 10px; }
+.card-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+.card-desc  { font-size: 13px; color: var(--text3); line-height: 1.5; }
+
+/* Flow */
+.flow { display: flex; flex-direction: column; gap: 0; }
+.flow-step { display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+.flow-step:last-child { border-bottom: none; }
+.flow-num { width: 32px; height: 32px; border-radius: 50%; background: #f1f5f9; border: 2px solid var(--border); color: var(--text3); font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+.flow-body {}
+.flow-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.flow-desc  { font-size: 13px; color: var(--text3); }
+
+/* Priority table */
+.pri-table { width: 100%; border-collapse: collapse; background: white; border-radius: var(--r2); overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow); }
+.pri-table th { padding: 10px 14px; font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; background: #f8fafc; border-bottom: 1px solid var(--border); text-align: left; }
+.pri-table td { padding: 12px 14px; font-size: 13px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+.pri-table tr:last-child td { border-bottom: none; }
+.pri-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+
+/* Tip box */
+.tip { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--r); padding: 14px 18px; display: flex; gap: 12px; align-items: flex-start; margin-top: 16px; }
+.tip-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+.tip-text { font-size: 13px; color: #1e40af; line-height: 1.6; }
+.tip-text b { color: #1e3a8a; }
+
+.warn { background: #fff7ed; border: 1px solid #fed7aa; border-radius: var(--r); padding: 14px 18px; display: flex; gap: 12px; align-items: flex-start; margin-top: 16px; }
+.warn-text { font-size: 13px; color: #9a3412; line-height: 1.6; }
+
+/* Arch diagram */
+.arch { background: white; border: 1px solid var(--border); border-radius: var(--r2); padding: 24px; box-shadow: var(--shadow); }
+.arch-row { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.arch-box { background: #f8fafc; border: 1.5px solid var(--border); border-radius: var(--r); padding: 12px 20px; text-align: center; min-width: 140px; }
+.arch-box.accent { background: #eff6ff; border-color: #bfdbfe; }
+.arch-box.dark   { background: #0f172a; border-color: #334155; }
+.arch-box .ab-icon { font-size: 20px; margin-bottom: 4px; }
+.arch-box .ab-title { font-size: 13px; font-weight: 700; }
+.arch-box .ab-title.white { color: white; }
+.arch-box .ab-sub { font-size: 10px; color: var(--text3); margin-top: 2px; }
+.arch-box .ab-sub.light { color: #64748b; }
+.arch-arrow { font-size: 18px; color: var(--text4); }
+
+/* Keyboard shortcut style */
+.kbd { display: inline-flex; background: #f1f5f9; border: 1px solid var(--border2, #cbd5e1); border-radius: 5px; padding: 2px 8px; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text2); }
+
+/* Footer */
+.footer { text-align: center; padding: 32px; font-size: 12px; color: var(--text4); }
+
+@media(max-width:600px){ .cards { grid-template-columns: 1fr; } .arch-row { flex-direction: column; } }
+@keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+.fade-in { animation: fadeIn .4s ease; }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo-icon">✓</div>
+  <div><div class="logo-name">TaskBoard</div><div class="logo-sub">Juanpi · Accenture</div></div>
+  <div class="header-badge">📖 Guía de uso</div>
+</header>
+
+<div class="wrap fade-in">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-tag">📋 Versión 1.0</div>
+    <h1>Guía de uso de TaskBoard</h1>
+    <p>Tu sistema personal de gestión de tareas, reuniones y planificación semanal — con IA bajo demanda.</p>
+  </div>
+
+  <!-- Arquitectura -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num" style="background:#8b5cf6">⚙</div>
+      <div><div class="section-title">Cómo está montado</div><div class="section-sub">Dos herramientas que se complementan</div></div>
+    </div>
+    <div class="arch">
+      <div class="arch-row">
+        <div class="arch-box accent">
+          <div class="ab-icon">🌐</div>
+          <div class="ab-title">TaskBoard HTML</div>
+          <div class="ab-sub">GitHub Pages<br>Gestión diaria</div>
+        </div>
+        <div class="arch-arrow">⇄</div>
+        <div class="arch-box" style="background:#f0fdf4;border-color:#bbf7d0">
+          <div class="ab-icon">☁️</div>
+          <div class="ab-title">Google Drive</div>
+          <div class="ab-sub">Apps Script<br>Fuente de verdad</div>
+        </div>
+        <div class="arch-arrow">⇄</div>
+        <div class="arch-box dark">
+          <div class="ab-icon">🤖</div>
+          <div class="ab-title white">Claude (Clau)</div>
+          <div class="ab-sub light">claude.ai<br>Capa inteligente</div>
+        </div>
+      </div>
+      <div style="text-align:center;font-size:12px;color:var(--text3);margin-top:8px">
+        El HTML es tu app principal · Drive sincroniza entre dispositivos · Claude planifica y prioriza bajo demanda
+      </div>
+    </div>
+  </div>
+
+  <!-- Prioridades -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">1</div>
+      <div><div class="section-title">Sistema de prioridades</div><div class="section-sub">El corazón del método</div></div>
+    </div>
+    <table class="pri-table">
+      <thead><tr><th>Código</th><th>Nombre</th><th>Cuándo usarlo</th><th>En el timeline</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="pri-badge" style="color:#ef4444;background:#fef2f2;border:1px solid #fecaca">★ Hoy</span></td>
+          <td><b>Hoy</b></td>
+          <td>Tareas que tienes que hacer sí o sí hoy</td>
+          <td>Se colocan automáticamente en los huecos libres del día</td>
+        </tr>
+        <tr>
+          <td><span class="pri-badge" style="color:#f97316;background:#fff7ed;border:1px solid #fed7aa">A Esta semana</span></td>
+          <td><b>Esta semana</b></td>
+          <td>Tareas importantes pero no urgentes para hoy</td>
+          <td>Aparecen en el panel de pendientes</td>
+        </tr>
+        <tr>
+          <td><span class="pri-badge" style="color:#3b82f6;background:#eff6ff;border:1px solid #bfdbfe">C Próx. semana</span></td>
+          <td><b>Próxima semana</b></td>
+          <td>Tareas a partir de la semana que viene</td>
+          <td>Solo visibles en el listado</td>
+        </tr>
+        <tr>
+          <td><span class="pri-badge" style="color:#8b5cf6;background:#f5f3ff;border:1px solid #ddd6fe">D Dependencia</span></td>
+          <td><b>Dependencia</b></td>
+          <td>Bloqueadas por algo o alguien externo</td>
+          <td>Aparecen en el panel de pendientes para vigilarlas</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="tip">
+      <div class="tip-icon">💡</div>
+      <div class="tip-text">Puedes cambiar la prioridad de cualquier tarea <b>directamente desde el listado</b> haciendo clic en el badge de prioridad — sin necesidad de abrir el modal de edición.</div>
+    </div>
+  </div>
+
+  <!-- Flujo diario -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">2</div>
+      <div><div class="section-title">Flujo diario recomendado</div><div class="section-sub">El ritual de la mañana</div></div>
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-num">1</div>
+          <div class="flow-body">
+            <div class="flow-title">Abre TaskBoard y revisa "Mi día"</div>
+            <div class="flow-desc">El timeline te muestra reuniones fijas y tareas ★ colocadas automáticamente. La barra de capacidad te dice si estás sobreocupado antes de empezar.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">2</div>
+          <div class="flow-body">
+            <div class="flow-title">Añade las reuniones del día</div>
+            <div class="flow-desc">Botón <b>+ Reunión</b> arriba a la derecha. Ponle fecha, hora, duración y proyecto. Las reuniones bloquean huecos en el timeline automáticamente.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">3</div>
+          <div class="flow-body">
+            <div class="flow-title">Ajusta prioridades</div>
+            <div class="flow-desc">En el <b>Listado</b>, haz clic en los badges de prioridad para subir o bajar tareas según el día que tengas. Las ★ aparecerán en el timeline.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">4</div>
+          <div class="flow-body">
+            <div class="flow-title">Guarda en Drive</div>
+            <div class="flow-desc">Pulsa <b>↑ Guardar Drive</b> para sincronizar. Así tienes los datos disponibles desde cualquier dispositivo.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">5</div>
+          <div class="flow-body">
+            <div class="flow-title">Al final del día, limpia las ★ completadas</div>
+            <div class="flow-desc">Elimina las tareas hechas desde el listado y baja las que no hayas podido hacer a <b>A</b> o <b>C</b> según corresponda.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sincronización -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">3</div>
+      <div><div class="section-title">Sincronización con Google Drive</div><div class="section-sub">Tus datos siempre disponibles</div></div>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <div class="card-icon">↓</div>
+        <div class="card-title">Cargar Drive</div>
+        <div class="card-desc">Descarga los datos más recientes desde Google Drive. Úsalo al abrir la app en un dispositivo nuevo o después de que Claude haya generado un JSON actualizado.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">↑</div>
+        <div class="card-title">Guardar Drive</div>
+        <div class="card-desc">Sube el estado actual a Google Drive. El botón se pone verde cuando hay cambios pendientes de guardar. Hazlo siempre antes de cerrar si quieres que se sincronice.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⬇</div>
+        <div class="card-title">Exportar JSON</div>
+        <div class="card-desc">Descarga un fichero JSON con todos tus datos. Úsalo para pasárselo a Claude cuando quieras que te ayude a planificar o reorganizar las tareas con IA.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⬆</div>
+        <div class="card-title">Importar JSON</div>
+        <div class="card-desc">Carga un fichero JSON. Úsalo cuando Claude te haya devuelto el JSON con cambios (nuevas prioridades, tareas reorganizadas, etc.) para aplicarlos en la app.</div>
+      </div>
+    </div>
+    <div class="warn">
+      <div class="tip-icon">⚠️</div>
+      <div class="warn-text">El <b>localStorage del navegador</b> guarda los datos automáticamente en cada cambio, así que no los perderás al recargar. El botón <b>↑ Guardar Drive</b> es para sincronizar entre dispositivos o hacer backup en la nube.</div>
+    </div>
+  </div>
+
+  <!-- Claude -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num" style="background:#0f172a">🤖</div>
+      <div><div class="section-title">Usar Claude como capa inteligente</div><div class="section-sub">Bajo demanda, cuando lo necesites</div></div>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <div class="card-icon">📅</div>
+        <div class="card-title">Planificar el día</div>
+        <div class="card-desc">Expórtale el JSON y dile "planifícame el día de hoy". Te dirá qué hacer primero, qué mover y si estás sobreocupado.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <div class="card-title">Reorganizar prioridades</div>
+        <div class="card-desc">"Tengo deadline el viernes en PTD, reorganiza mis prioridades." Claude ajusta el JSON y te lo devuelve listo para importar.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📸</div>
+        <div class="card-title">Importar reuniones</div>
+        <div class="card-desc">Haz una captura de tu calendario de Outlook o Teams y pásasela. Claude extrae las reuniones y las añade al JSON.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">💬</div>
+        <div class="card-title">Añadir tareas en lenguaje natural</div>
+        <div class="card-desc">"Añade estas tareas que me han llegado esta mañana..." y le pegas el texto. Claude las estructura y te devuelve el JSON actualizado.</div>
+      </div>
+    </div>
+    <div class="tip">
+      <div class="tip-icon">💡</div>
+      <div class="tip-text"><b>El flujo con Claude:</b> Exportar JSON desde TaskBoard → pegárselo a Claude con tu petición → Claude te devuelve el JSON actualizado → Importar JSON en TaskBoard → Guardar en Drive.</div>
+    </div>
+  </div>
+
+  <!-- Tips -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num" style="background:#22c55e">✨</div>
+      <div><div class="section-title">Consejos de uso</div><div class="section-sub">Para sacarle el máximo partido</div></div>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <div class="card-icon">🎯</div>
+        <div class="card-title">Máximo 3 tareas ★</div>
+        <div class="card-desc">Si tienes más de 3 tareas "de hoy", la barra de capacidad se pondrá roja. Es una señal de que necesitas bajar alguna a A.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⏱</div>
+        <div class="card-title">Pon siempre el esfuerzo</div>
+        <div class="card-desc">El esfuerzo estimado en horas es lo que hace que la capacidad del día y la vista semanal sean útiles. Sin él, los cálculos no funcionan.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📆</div>
+        <div class="card-title">Reuniones con fecha</div>
+        <div class="card-desc">A diferencia de las tareas, las reuniones tienen fecha específica. Puedes navegar por la semana en el timeline para ver qué tienes cada día.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔄</div>
+        <div class="card-title">Ritual semanal</div>
+        <div class="card-desc">Los lunes, pasa las tareas A no completadas a ★ o C, y limpia las D que ya se hayan desbloqueado. Es el momento ideal para pasarle el JSON a Claude.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">TaskBoard · Juanpi · Accenture — Construido con Claude ✦</div>
+
+</body>
+</html>
