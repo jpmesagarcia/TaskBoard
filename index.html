@@ -416,10 +416,34 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .tag { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 5px; font-size: 10px; font-weight: 600; }
 .overtime-badge { background: rgba(245,130,13,0.12); color: var(--orange); border: 1px solid rgba(245,130,13,0.25); }
 
+.cloud-menu-item {
+  width:100%;text-align:left;padding:9px 12px;background:none;border:none;
+  font-size:13px;font-family:inherit;cursor:pointer;border-radius:7px;
+  display:flex;align-items:center;gap:8px;transition:background .12s;
+}
+.cloud-menu-item:hover { background:#2a3550; }
+
+/* Day view week strip */
+.week-strip-bar { display:flex; gap:4px; margin-bottom:12px; }
+.wsb-day {
+  flex:1; padding:8px 4px; border-radius:8px; text-align:center;
+  border:1.5px solid var(--border); background:var(--surface2);
+  cursor:pointer; transition:all .15s;
+}
+.wsb-day:hover { border-color:var(--border2); }
+.wsb-day.selected { border-color:var(--accent); background:rgba(59,111,245,0.08); }
+.wsb-day.today { border-color:var(--border2); }
+.wsb-day .wsb-name { font-size:9px; color:var(--text4); font-weight:700; text-transform:uppercase; }
+.wsb-day.selected .wsb-name, .wsb-day.selected .wsb-num { color:var(--accent); }
+.wsb-day.today .wsb-num { color:var(--text); }
+.wsb-day .wsb-num { font-size:14px; font-weight:700; color:var(--text3); margin-top:2px; font-variant-numeric:tabular-nums; }
+.wsb-dot { width:4px; height:4px; border-radius:50%; background:var(--purple); margin:3px auto 0; }
+
 @media(max-width:900px) {
   .timeline-container, .week-header { grid-template-columns: 40px repeat(5,1fr); }
   .content { padding: 10px 12px; }
   .header-pills { display: none; }
+  .backlog-panel { display: none; }
 }
 @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
 .fade-in { animation: fadeIn .2s ease; }
@@ -440,51 +464,102 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   <div class="header-alerts" id="headerAlerts"></div>
   <div class="header-right">
     <button class="work-mode-btn" id="workModeBtn" onclick="toggleWorkMode()">🏠 Remoto</button>
-    <div style="font-size:11px;color:#4a5270;display:flex;align-items:center;gap:6px">
-      Horas:
-      <select id="capSelect" onchange="updateCap()" style="background:#1a2035;color:white;border:1px solid #2a3550;border-radius:6px;padding:3px 7px;font-size:11px;font-family:inherit">
-        <option>4</option><option>5</option><option>6</option><option>7</option>
-        <option selected>8</option><option>9</option><option>10</option>
-      </select>
+    <!-- cap selector moved to day/week view header -->
+    <!-- Cloud menu -->
+    <div style="position:relative">
+      <button class="btn btn-dark btn-sm" onclick="toggleCloudMenu(event)" id="cloudBtn">☁️</button>
     </div>
-    <button class="btn btn-purple btn-sm" onclick="openModal('blockModal')">+ Bloque</button>
+    <button class="btn btn-purple btn-sm" onclick="openBlockModal()">+ Bloque</button>
     <button class="btn btn-primary btn-sm" onclick="openTaskModal()">+ Tarea</button>
-    <a href="taskboard-v2-guia.html" target="_blank" class="btn btn-dark btn-sm" style="text-decoration:none">📖 Guía</a>
+    <a href="taskboard-v2-guia.html" target="_blank" class="btn btn-dark btn-sm" style="text-decoration:none">📖</a>
   </div>
 </header>
 
+<!-- Cloud menu (fixed, outside header to avoid z-index issues) -->
+<div id="cloudMenu" style="display:none;position:fixed;top:62px;right:12px;background:#1a2035;border:1px solid #2a3550;border-radius:12px;padding:8px;min-width:200px;box-shadow:0 12px 32px rgba(0,0,0,0.5);z-index:500">
+  <div style="font-size:10px;color:#4a5270;padding:4px 8px 6px;text-transform:uppercase;letter-spacing:.05em;font-weight:700">Google Drive</div>
+  <button onclick="loadFromDrive();toggleCloudMenu()" class="cloud-menu-item" style="color:#93c5fd">↓ Cargar desde Drive</button>
+  <button onclick="saveToDrive();toggleCloudMenu()" class="cloud-menu-item" style="color:#6ee7b7">↑ Guardar en Drive</button>
+  <div style="border-top:1px solid #2a3550;margin:6px 0"></div>
+  <div style="font-size:10px;color:#4a5270;padding:4px 8px 6px;text-transform:uppercase;letter-spacing:.05em;font-weight:700">JSON</div>
+  <button onclick="exportJSON();toggleCloudMenu()" class="cloud-menu-item" style="color:#9aa0b8">⬇ Exportar JSON</button>
+  <button onclick="document.getElementById('importFileCloud').click();toggleCloudMenu()" class="cloud-menu-item" style="color:#9aa0b8">⬆ Importar JSON</button>
+  <input type="file" id="importFileCloud" accept=".json" style="display:none" onchange="importJSON(event)">
+  <div style="border-top:1px solid #2a3550;margin:6px 0"></div>
+  <div style="font-size:10px;color:#4a5270;padding:4px 8px 4px" id="cloudSyncTime">Sin sincronizar</div>
+</div>
+
 <!-- Nav -->
 <nav class="nav">
-  <button class="nav-tab active" onclick="switchTab('semana',this)">📅 Semana</button>
+  <button class="nav-tab active" onclick="switchTab('dia',this)">📅 Mi día</button>
+  <button class="nav-tab"        onclick="switchTab('semana',this)">📆 Semana</button>
   <button class="nav-tab"        onclick="switchTab('lista',this)">📋 Listado</button>
   <button class="nav-tab"        onclick="switchTab('resumen',this)">📊 Resumen</button>
-  <div class="nav-right">
-    <button class="btn btn-ghost btn-sm" onclick="clearFillTasks()" title="Eliminar todos los bloques de auto-relleno">✕ Limpiar relleno</button>
-    <button class="btn btn-primary btn-sm" onclick="triggerAutoFill()" title="Distribuir tareas de relleno en los huecos libres">🔄 Auto-rellenar</button>
-    <button class="btn btn-ghost btn-sm" onclick="exportJSON()">⬇ Exportar</button>
-    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('importFile').click()">⬆ Importar</button>
-    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
+  <div class="nav-right" id="navRight">
+    <button class="btn btn-ghost btn-sm" onclick="clearFillTasks()" id="btnClearFill" title="Eliminar auto-relleno" style="display:none">✕ Relleno</button>
+    <button class="btn btn-primary btn-sm" onclick="triggerAutoFill()" id="btnAutoFill" title="Distribuir tareas de relleno en huecos libres" style="display:none">🔄 Auto-rellenar</button>
   </div>
 </nav>
 
 <!-- Content -->
 <div class="content">
 
-  <!-- Sync bar -->
-  <div class="sync-bar">
-    <span class="sync-dot idle" id="sbDot"></span>
-    <span style="color:var(--text3)">Google Drive:</span>
-    <b id="sbLabel" style="color:var(--text3)">Sin sincronizar</b>
-    <span style="color:var(--text4);font-size:11px" id="sbTime"></span>
-    <span style="color:var(--text4);font-size:11px" id="sbMsg"></span>
-    <div class="sync-bar-right">
-      <button class="btn btn-dark btn-sm"  id="btnLoad" onclick="loadFromDrive()">↓ Cargar Drive</button>
-      <button class="btn btn-green btn-sm" id="btnSave" onclick="saveToDrive()">↑ Guardar Drive</button>
+  <!-- Minimal status indicator (hidden, status shown in cloud menu) -->
+  <div id="sbDot" class="sync-dot idle" style="display:none"></div>
+  <span id="sbLabel" style="display:none"></span>
+  <span id="sbTime" style="display:none"></span>
+  <span id="sbMsg" style="display:none"></span>
+  <button id="btnLoad" style="display:none" onclick="loadFromDrive()"></button>
+  <button id="btnSave" style="display:none" onclick="saveToDrive()"></button>
+
+  <!-- ── MI DÍA ── -->
+  <div id="tab-dia" class="fade-in">
+    <!-- Week strip + nav -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <button class="btn btn-ghost btn-sm" onclick="prevWeek();selectedDay=getWeekDays(weekStart)[0];renderDayView()">←</button>
+      <div class="week-strip-bar" id="dayWeekStrip" style="flex:1;margin-bottom:0"></div>
+      <button class="btn btn-ghost btn-sm" onclick="nextWeek();selectedDay=getWeekDays(weekStart)[0];renderDayView()">→</button>
+    </div>
+
+    <!-- Day header -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r2) var(--r2) 0 0;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--shadow-sm)">
+      <div>
+        <div style="font-size:15px;font-weight:700" id="dayViewTitle">—</div>
+        <div style="font-size:11px;color:var(--text4);margin-top:2px" id="dayViewSub">—</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:5px">
+          <select id="capSelect" onchange="updateCap()" style="border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;font-family:inherit;background:var(--surface2)">
+            <option>4</option><option>5</option><option>6</option><option>7</option>
+            <option selected>8</option><option>9</option><option>10</option>
+          </select>
+          <span>h disponibles</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="clearFillTasks()">✕ Relleno</button>
+        <button class="btn btn-primary btn-sm" onclick="triggerAutoFill()">🔄 Auto-rellenar</button>
+      </div>
+    </div>
+
+    <!-- Day timeline + backlog -->
+    <div style="display:grid;grid-template-columns:1fr 260px;gap:0;background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--r2) var(--r2);box-shadow:var(--shadow-sm);height:calc(100vh - 220px)">
+      <div style="overflow-y:auto;border-right:1px solid var(--border)" id="dayTimelineWrap">
+        <div style="display:flex">
+          <div class="tl-time-col" id="dayTlLabels"></div>
+          <div style="flex:1;position:relative" id="dayTlGrid"
+            ondragover="onDayDragOver(event)" ondragleave="onDayDragLeave(event)" ondrop="onDayDrop(event)">
+          </div>
+        </div>
+      </div>
+      <!-- Day backlog -->
+      <div style="overflow-y:auto;display:flex;flex-direction:column">
+        <div style="padding:12px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Sin planificar</div>
+        <div id="dayBacklog" style="flex:1;overflow-y:auto;padding:8px"></div>
+      </div>
     </div>
   </div>
 
   <!-- ── SEMANA ── -->
-  <div id="tab-semana" class="fade-in">
+  <div id="tab-semana" style="display:none" class="fade-in">
     <div style="display:grid;grid-template-columns:1fr 280px;gap:16px;align-items:start">
       <div>
         <!-- Week day headers -->
@@ -914,13 +989,15 @@ function toast(msg,type="ok"){
 
 // ── Sync UI ────────────────────────────────────────────────────────────────
 function setSyncUI(status,msg){
-  const labels={idle:"Sin sincronizar",loading:"Sincronizando…",synced:"Sincronizado",error:"Error"};
-  const colors={idle:"var(--text4)",loading:"var(--yellow)",synced:"var(--green)",error:"var(--red)"};
-  const dot=document.getElementById("sbDot"); dot.className=`sync-dot ${status}`;
-  const lbl=document.getElementById("sbLabel"); lbl.textContent=labels[status]||""; lbl.style.color=colors[status];
-  document.getElementById("sbTime").textContent=lastSync?"· "+lastSync.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"}):"";
-  document.getElementById("sbMsg").textContent=msg||"";
-  ["btnLoad","btnSave"].forEach(id=>{ const el=document.getElementById(id); if(el) el.disabled=status==="loading"; });
+  // Update cloud button indicator
+  const cloudBtn=document.getElementById("cloudBtn");
+  if(cloudBtn){
+    if(status==="loading") cloudBtn.textContent="☁️ …";
+    else if(status==="synced") cloudBtn.textContent="☁️ ✓";
+    else if(status==="error") cloudBtn.textContent="☁️ ✕";
+    else cloudBtn.textContent="☁️";
+  }
+  updateCloudMenuTime();
 }
 
 // ── Drive ──────────────────────────────────────────────────────────────────
@@ -983,9 +1060,202 @@ function switchTab(id,btn){
   const el=document.getElementById("tab-"+id);
   el.style.display="block"; requestAnimationFrame(()=>el.classList.add("fade-in"));
   btn.classList.add("active");
+  // Show/hide auto-fill buttons and week nav
+  const showFill = id==="semana";
+  document.getElementById("btnAutoFill").style.display = showFill?"":"none";
+  document.getElementById("btnClearFill").style.display = showFill?"":"none";
+  const wn = document.getElementById("weekNav");
+  if(wn) wn.style.display = showFill?"flex":"none";
   if(id==="lista")   renderList();
   if(id==="resumen") renderResumen();
   if(id==="semana")  renderWeekView();
+  if(id==="dia")     renderDayView();
+}
+
+// ── Cloud menu ──────────────────────────────────────────────────────────────
+function toggleCloudMenu(e){
+  if(e) e.stopPropagation();
+  const m=document.getElementById("cloudMenu");
+  m.style.display=m.style.display==="none"?"block":"none";
+}
+document.addEventListener("click", e=>{
+  const menu=document.getElementById("cloudMenu");
+  const btn=document.getElementById("cloudBtn");
+  if(menu && btn && !btn.contains(e.target) && !menu.contains(e.target))
+    menu.style.display="none";
+});
+
+// ── Day view ────────────────────────────────────────────────────────────────
+let selectedDay = TODAY;
+
+function renderDayWeekStrip(){
+  const names=["L","M","X","J","V"];
+  const days=getWeekDays(weekStart);
+  document.getElementById("dayWeekStrip").innerHTML=days.map((d,i)=>{
+    const hasMtg=getBlocksForDay(d).some(b=>b.tipo==="meeting");
+    const hasPlan=getPlannedForDay(d).length>0;
+    const sel=d===selectedDay, tod=isToday(d);
+    return `<div class="wsb-day${sel?" selected":""}${tod?" today":""}" onclick="selectDay('${d}')">
+      <div class="wsb-name">${names[i]}</div>
+      <div class="wsb-num">${d.split("-")[2]}</div>
+      ${(hasMtg||hasPlan)?`<div class="wsb-dot"></div>`:""}
+    </div>`;
+  }).join("");
+}
+
+function selectDay(d){ selectedDay=d; renderDayView(); }
+
+function renderDayView(){
+  renderDayWeekStrip();
+  const date=new Date(selectedDay+"T12:00:00");
+  const lbl=date.toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"});
+  document.getElementById("dayViewTitle").innerHTML=
+    lbl+(isToday(selectedDay)?` <span style="font-size:10px;background:rgba(59,111,245,0.15);color:var(--accent);padding:2px 8px;border-radius:10px;font-weight:700;margin-left:6px">HOY</span>`:"");
+
+  // Capacity info
+  const wh=getWorkHours(selectedDay);
+  const free=getFreeHours(selectedDay);
+  const over=free<0;
+  const freeColor = over ? "#f04438" : "#16c784";
+  const freeText  = over ? "⚠ Sobreocupado" : free.toFixed(1)+"h libre";
+  const workEnd   = wh.end%1===0.5 ? (wh.end-0.5)+":30" : wh.end+":00";
+  document.getElementById("dayViewSub").innerHTML=
+    `${wh.start}:00–${workEnd}h laborables &nbsp;·&nbsp; <span style="color:${freeColor};font-weight:600">${freeText}</span>`;
+
+  renderDayTimeline();
+  renderDayBacklog();
+}
+
+function renderDayTimeline(){
+  const hours=Array.from({length:H_END-H_START},(_,i)=>H_START+i);
+  const wh=getWorkHours(selectedDay);
+  const workTop=(wh.start-H_START)*HOUR_PX;
+  const workH=(wh.end-wh.start)*HOUR_PX;
+
+  // Labels
+  document.getElementById("dayTlLabels").innerHTML=
+    hours.map(h=>`<div class="tl-time-slot">${String(h).padStart(2,"0")}:00</div>`).join("");
+
+  const grid=document.getElementById("dayTlGrid");
+  grid.innerHTML=hours.map(()=>`<div class="tl-hour-row"><div class="tl-half"></div></div>`).join("");
+
+  // Work zone
+  const wz=document.createElement("div");
+  wz.className="tl-work-zone"; wz.style.cssText=`top:${workTop}px;height:${workH}px`;
+  grid.appendChild(wz);
+
+  // Now line
+  if(isToday(selectedDay)){
+    const now=new Date(); const h=now.getHours()+now.getMinutes()/60;
+    if(h>=H_START&&h<=H_END){
+      const nl=document.createElement("div"); nl.className="tl-now";
+      nl.style.top=(h-H_START)*HOUR_PX+"px";
+      nl.innerHTML=`<div class="tl-now-dot"></div><div class="tl-now-line"></div>`;
+      grid.appendChild(nl);
+    }
+  }
+
+  // Blocks
+  getBlocksForDay(selectedDay).forEach(b=>{
+    grid.innerHTML+=renderBlockEl(b,selectedDay);
+  });
+  // Planned tasks
+  getPlannedForDay(selectedDay).forEach(p=>{
+    grid.innerHTML+=renderPlanEl(p,selectedDay);
+  });
+
+  // Scroll to work start
+  const wrap=document.getElementById("dayTimelineWrap");
+  if(wrap) wrap.scrollTop=Math.max(0,(wh.start-H_START-0.5)*HOUR_PX);
+}
+
+function renderDayBacklog(){
+  const unplanned=state.tasks.filter(t=>{
+    if(t.tipo==="relleno"||t.dependencia) return false;
+    const planned=(t.planificacion||[]).reduce((s,p)=>s+p.horas,0);
+    return planned<(t.esfuerzo||0);
+  });
+  const el=document.getElementById("dayBacklog");
+  if(!el) return;
+  if(!unplanned.length){
+    el.innerHTML=`<div style="padding:20px;text-align:center;color:var(--text4);font-size:12px">✅ Todo planificado</div>`;
+    return;
+  }
+  el.innerHTML=unplanned.map(t=>{
+    const planned=(t.planificacion||[]).reduce((s,p)=>s+p.horas,0);
+    const remaining=t.esfuerzo?(t.esfuerzo-planned):null;
+    const hasDeadline=t.deadline&&t.deadline<=getWeekDays(weekStart)[4];
+    return `<div class="backlog-item" data-id="${t.id}" draggable="true"
+      style="border-color:${hasDeadline?"var(--red)":"var(--border2)"};margin-bottom:5px">
+      <span class="bi-name">${t.tarea}</span>
+      <span class="bi-meta">${remaining!==null?remaining+"h":"∞"}</span>
+    ${t.deadline ? '<span class="bi-deadline" style="background:'+(hasDeadline?'#fef2f2':'var(--surface2)')+';color:'+(hasDeadline?'var(--red)':'var(--text4)')+'">⚑'+fmtDate(t.deadline)+'</span>' : ""}
+    </div>`;
+  }).join("");
+
+  // Wire drag from day backlog
+  el.querySelectorAll(".backlog-item[data-id]").forEach(item=>{
+    item.addEventListener("dragstart",e=>{
+      dragData={type:"backlog",id:parseInt(item.dataset.id)};
+      e.dataTransfer.effectAllowed="move";
+    });
+  });
+}
+
+function onDayDragOver(e){ e.preventDefault(); e.currentTarget.style.background="rgba(59,111,245,0.03)"; }
+function onDayDragLeave(e){ e.currentTarget.style.background=""; }
+function onDayDrop(e){
+  e.currentTarget.style.background="";
+  e.preventDefault();
+  if(!dragData) return;
+  const wrap=document.getElementById("dayTimelineWrap");
+  const gridRect=e.currentTarget.getBoundingClientRect();
+  const relY=(e.clientY-gridRect.top)+wrap.scrollTop;
+  let dropHour=snapHour(H_START+relY/HOUR_PX);
+  dropHour=Math.max(H_START,Math.min(H_END-0.5,dropHour));
+
+  const affectedDays=new Set([selectedDay]);
+
+  if(dragData.type==="backlog"){
+    const t=state.tasks.find(x=>x.id===dragData.id);
+    if(!t){ dragData=null; return; }
+    const planned=(t.planificacion||[]).reduce((s,p)=>s+p.horas,0);
+    const remaining=t.esfuerzo?(t.esfuerzo-planned):2;
+    if(t.esfuerzo&&remaining<=0){ toast("Tarea ya completamente planificada","warn"); dragData=null; return; }
+    const duration=Math.min(remaining||2,2);
+    const freeHour=findFreeSlot(selectedDay,dropHour,duration);
+    if(!t.planificacion) t.planificacion=[];
+    t.planificacion.push({fecha:selectedDay,horaInicio:freeHour,horas:duration});
+    toast(`✓ ${t.tarea} añadida`);
+  } else if(dragData.type==="planned"){
+    const t=state.tasks.find(x=>x.id===dragData.taskId);
+    if(!t||!t.planificacion){ dragData=null; return; }
+    let bestIdx=-1,bestDiff=Infinity;
+    t.planificacion.forEach((p,i)=>{
+      if(p.fecha===dragData.fromDate){
+        const diff=Math.abs(p.horaInicio-dragData.fromHour);
+        if(diff<bestDiff){bestDiff=diff;bestIdx=i;}
+      }
+    });
+    if(bestIdx>=0){
+      const dur=t.planificacion[bestIdx].horas;
+      affectedDays.add(t.planificacion[bestIdx].fecha);
+      const entry=t.planificacion.splice(bestIdx,1)[0];
+      const freeHour=findFreeSlot(selectedDay,dropHour,dur);
+      entry.fecha=selectedDay; entry.horaInicio=freeHour;
+      t.planificacion.push(entry);
+    }
+  } else if(dragData.type==="block"){
+    const b=state.blocks.find(x=>x.id===dragData.blockId);
+    if(!b){ dragData=null; return; }
+    affectedDays.add(b.fecha);
+    const freeHour=findFreeSlot(selectedDay,dropHour,b.duracion);
+    b.fecha=selectedDay; b.horaInicio=freeHour;
+    if(b.recurrente!=="none") b.recurrente="none";
+  }
+
+  affectedDays.forEach(d=>clearFillForDay(d));
+  dragData=null; markDirty(); renderDayView();
 }
 
 // ── Work mode ──────────────────────────────────────────────────────────────
@@ -1219,7 +1489,7 @@ function backlogItemHTML(t){
     style="border-color:${hasDeadline?"var(--red)":"var(--border2)"}">
     <span class="bi-name">${t.tarea}</span>
     <span class="bi-meta">${remaining!==null?remaining+"h":"∞"}</span>
-    ${t.deadline?`<span class="bi-deadline" style="background:${hasDeadline?"#fef2f2":"var(--surface2)"};color:${hasDeadline?"var(--red)":"var(--text4)"}">⚑${fmtDate(t.deadline)}</span>`:""}
+    ${t.deadline ? '<span class="bi-deadline" style="background:'+(hasDeadline?'#fef2f2':'var(--surface2)')+';color:'+(hasDeadline?'var(--red)':'var(--text4)')+'">⚑'+fmtDate(t.deadline)+'</span>' : ""}
   </div>`;
 }
 
@@ -1641,13 +1911,24 @@ function renderResumen(){
 function renderAll(){
   renderPills();
   renderAlerts();
+  updateCloudMenuTime();
   saveLocal();
   const activeTab=document.querySelector(".nav-tab.active");
   if(!activeTab) return;
   const label=activeTab.textContent;
+  if(label.includes("Mi día"))  renderDayView();
   if(label.includes("Semana"))  renderWeekView();
   if(label.includes("Listado")) renderList();
   if(label.includes("Resumen")) renderResumen();
+}
+
+function updateCloudMenuTime(){
+  const el=document.getElementById("cloudSyncTime");
+  if(!el) return;
+  el.textContent=lastSync?"Último sync: "+lastSync.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"}):"Sin sincronizar";
+  // Update cloud btn color based on dirty state
+  const btn=document.getElementById("cloudBtn");
+  if(btn) btn.style.color=dirty?"#fbbf24":dirty===false&&lastSync?"#6ee7b7":"#93c5fd";
 }
 
 // ── Week navigation ────────────────────────────────────────────────────────
@@ -1657,20 +1938,17 @@ function thisWeek(){ weekStart=getWeekStart(new Date()); renderAll(); }
 
 // ── Init ───────────────────────────────────────────────────────────────────
 loadLocal();
+selectedDay = TODAY;
+const todayWeekStart = getWeekStart(new Date());
+if(getWeekDays(weekStart).indexOf(TODAY) === -1) weekStart = todayWeekStart;
 renderAll();
-
-// Override block button
-setTimeout(()=>{
-  const btn=document.querySelector('[onclick="openModal(\'blockModal\')"]');
-  if(btn) btn.onclick=openBlockModal;
-},100);
 </script>
 
-<!-- Week nav -->
-<div style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:50;background:var(--surface);border:1px solid var(--border);border-radius:40px;padding:6px 10px;box-shadow:var(--shadow-lg)">
-  <button class="btn btn-ghost btn-sm" onclick="prevWeek()">← Semana ant.</button>
+<!-- Week nav (kept for semana tab) -->
+<div id="weekNav" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:none;gap:8px;z-index:50;background:var(--surface);border:1px solid var(--border);border-radius:40px;padding:6px 10px;box-shadow:var(--shadow-lg)">
+  <button class="btn btn-ghost btn-sm" onclick="prevWeek()">← Ant.</button>
   <button class="btn btn-ghost btn-sm" onclick="thisWeek()">Hoy</button>
-  <button class="btn btn-ghost btn-sm" onclick="nextWeek()">Semana sig. →</button>
+  <button class="btn btn-ghost btn-sm" onclick="nextWeek()">Sig. →</button>
 </div>
 
 </body>
