@@ -1244,11 +1244,37 @@ function snapHour(h) {
 }
 
 function clearFillForDay(dateStr) {
-  // Remove all fill task planificacion entries for this day
   state.tasks.forEach(t=>{
     if(t.tipo==="relleno" && t.planificacion)
       t.planificacion = t.planificacion.filter(p=>p.fecha!==dateStr);
   });
+}
+
+// Returns first free slot >= wantedHour for a given duration on a day,
+// ignoring fill tasks (they will be recalculated later)
+function findFreeSlot(dateStr, wantedHour, durationH) {
+  const wh = getWorkHours(dateStr);
+  // Build busy intervals (blocks + non-fill planned tasks)
+  const busy = [];
+  getBlocksForDay(dateStr).forEach(b=>{
+    busy.push({s: b.horaInicio, e: b.horaInicio + b.duracion});
+  });
+  getPlannedForDay(dateStr).forEach(p=>{
+    if(p.task.tipo !== "relleno")
+      busy.push({s: p.horaInicio, e: p.horaInicio + p.horas});
+  });
+  busy.sort((a,b)=>a.s-b.s);
+
+  let cursor = Math.max(wh.start, wantedHour);
+  let tries = 0;
+  while(tries < 50 && cursor + durationH <= wh.end) {
+    const overlap = busy.find(b => cursor < b.e && cursor + durationH > b.s);
+    if(!overlap) return cursor; // free!
+    cursor = snapHour(overlap.e);
+    tries++;
+  }
+  // If nothing fits within work hours, return wantedHour clamped (user can adjust)
+  return Math.min(wantedHour, wh.end - durationH);
 }
 
 function onDrop(e, dateStr){
@@ -1256,10 +1282,12 @@ function onDrop(e, dateStr){
   e.currentTarget.classList.remove("drag-over");
   if(!dragData) return;
 
-  // Calculate drop hour from mouse position
-  const rect = e.currentTarget.getBoundingClientRect();
-  const scrollTop = document.getElementById("timelineContainer").scrollTop;
-  const relY = e.clientY - rect.top + scrollTop;
+  // Calculate drop hour from mouse position, accounting for scroll correctly
+  const container = document.getElementById("timelineContainer");
+  const rect = container.getBoundingClientRect();
+  // We need position relative to the tl-day-col, not the container
+  const colRect = e.currentTarget.getBoundingClientRect();
+  const relY = e.clientY - colRect.top + container.scrollTop;
   let dropHour = snapHour(H_START + relY / HOUR_PX);
   dropHour = Math.max(H_START, Math.min(H_END - 0.5, dropHour));
 
@@ -1267,21 +1295,23 @@ function onDrop(e, dateStr){
 
   if(dragData.type === "backlog"){
     const t = state.tasks.find(x=>x.id===dragData.id);
-    if(!t) { dragData=null; return; }
+    if(!t){ dragData=null; return; }
     const planned = (t.planificacion||[]).reduce((s,p)=>s+p.horas, 0);
     const remaining = t.esfuerzo ? (t.esfuerzo - planned) : 2;
     if(t.esfuerzo && remaining <= 0){
       toast("Esta tarea ya está completamente planificada","warn");
       dragData=null; return;
     }
+    const duration = Math.min(remaining||2, 2);
+    // Find first free slot from drop hour
+    const freeHour = findFreeSlot(dateStr, dropHour, duration);
     if(!t.planificacion) t.planificacion=[];
-    t.planificacion.push({fecha:dateStr, horaInicio:dropHour, horas:Math.min(remaining||2, 2)});
-    toast(`✓ ${t.tarea} → ${new Date(dateStr+"T12:00:00").toLocaleDateString("es-ES",{weekday:"short",day:"numeric"})}`);
+    t.planificacion.push({fecha:dateStr, horaInicio:freeHour, horas:duration});
+    toast(`✓ ${t.tarea} → ${new Date(dateStr+"T12:00:00").toLocaleDateString("es-ES",{weekday:"short",day:"numeric"})} ${snapHour(freeHour)===dropHour?"":"(ajustado al primer hueco libre)"}`);
 
   } else if(dragData.type === "planned"){
     const t = state.tasks.find(x=>x.id===dragData.taskId);
     if(!t||!t.planificacion){ dragData=null; return; }
-    // Find the entry by matching date AND hour (use closest match)
     let bestIdx = -1, bestDiff = Infinity;
     t.planificacion.forEach((p,i)=>{
       if(p.fecha===dragData.fromDate){
@@ -1290,27 +1320,32 @@ function onDrop(e, dateStr){
       }
     });
     if(bestIdx >= 0){
+      const dur = t.planificacion[bestIdx].horas;
       affectedDays.add(t.planificacion[bestIdx].fecha);
-      t.planificacion[bestIdx].fecha = dateStr;
-      t.planificacion[bestIdx].horaInicio = dropHour;
+      // Temporarily remove this entry to avoid self-collision
+      const entry = t.planificacion.splice(bestIdx, 1)[0];
+      const freeHour = findFreeSlot(dateStr, dropHour, dur);
+      entry.fecha = dateStr;
+      entry.horaInicio = freeHour;
+      t.planificacion.push(entry);
     }
 
   } else if(dragData.type === "block"){
     const b = state.blocks.find(x=>x.id===dragData.blockId);
     if(!b){ dragData=null; return; }
     affectedDays.add(b.fecha);
+    const freeHour = findFreeSlot(dateStr, dropHour, b.duracion);
     b.fecha = dateStr;
-    b.horaInicio = dropHour;
-    if(b.recurrente !== "none") b.recurrente = "none"; // one-off after move
+    b.horaInicio = freeHour;
+    if(b.recurrente !== "none") b.recurrente = "none";
   }
 
-  // Clear fill tasks for all affected days so they don't overlap
+  // Clear fill for affected days
   affectedDays.forEach(d => clearFillForDay(d));
 
   dragData = null;
   markDirty();
   renderAll();
-  toast("💡 Pulsa '🔄 Auto-rellenar' para redistribuir las tareas de relleno", "warn");
 }
 
 function removeTaskFromDay(taskId,dateStr){
