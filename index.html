@@ -659,7 +659,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
       <div class="field full"><label>Tipo de bloque</label>
         <select id="bTipo" onchange="onBlockTypeChange()">
           <optgroup label="Reunión">
-            <option value="meeting">Reunión de trabajo</option>
+            <option value="meeting">📅 Reunión de trabajo</option>
           </optgroup>
           <optgroup label="Bloque personal">
             <option value="lunch">🍽 Comida</option>
@@ -667,10 +667,17 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
             <option value="transport_out">🚗 Transporte (vuelta)</option>
             <option value="personal">📌 Personal (médico, colegio...)</option>
           </optgroup>
+          <optgroup label="Día especial (bloquea todo el día)">
+            <option value="vacation">🌴 Vacaciones</option>
+            <option value="holiday">🎉 Festivo</option>
+            <option value="sick">🤒 Baja / Enfermedad</option>
+            <option value="off">📴 Sin disponibilidad</option>
+          </optgroup>
         </select>
       </div>
       <div class="field full" id="bTituloField"><label>Título *</label><input id="bTitulo" placeholder="Nombre del bloque"></div>
-      <div class="field"><label>Fecha</label><input type="date" id="bFecha"></div>
+      <div class="field"><label>Fecha inicio</label><input type="date" id="bFecha"></div>
+      <div class="field" id="bFechaFinField" style="display:none"><label>Fecha fin <span style="font-weight:400;color:var(--text4)">(opcional)</span></label><input type="date" id="bFechaFin"></div>
       <div class="field" id="bRecurrenteField" style="display:none">
         <label>Recurrencia</label>
         <select id="bRecurrente">
@@ -741,12 +748,23 @@ const PRIORITIES = [
 ];
 
 const BLOCK_META = {
-  meeting:       {icon:"📅", label:"Reunión",      color:"#9b6dff", bg:"linear-gradient(135deg,#7c3aed,#9b6dff)"},
-  lunch:         {icon:"🍽", label:"Comida",       color:"#16c784", bg:"#f0fdf4", border:"#86efac"},
-  transport_in:  {icon:"🚗", label:"Trayecto ida", color:"#3b6ff5", bg:"#eff4ff", border:"#c7d7fd"},
-  transport_out: {icon:"🚗", label:"Trayecto vta", color:"#3b6ff5", bg:"#eff4ff", border:"#c7d7fd"},
-  personal:      {icon:"📌", label:"Personal",     color:"#f5820d", bg:"#fff7ed", border:"#fed7aa"},
+  meeting:       {icon:"📅", label:"Reunión",         color:"#9b6dff", bg:"linear-gradient(135deg,#7c3aed,#9b6dff)"},
+  lunch:         {icon:"🍽", label:"Comida",          color:"#16c784", bg:"#f0fdf4", border:"#86efac"},
+  transport_in:  {icon:"🚗", label:"Trayecto ida",    color:"#3b6ff5", bg:"#eff4ff", border:"#c7d7fd"},
+  transport_out: {icon:"🚗", label:"Trayecto vuelta", color:"#3b6ff5", bg:"#eff4ff", border:"#c7d7fd"},
+  personal:      {icon:"📌", label:"Personal",        color:"#f5820d", bg:"#fff7ed", border:"#fed7aa"},
+  vacation:      {icon:"🌴", label:"Vacaciones",      color:"#16c784", bg:"#f0fdf4", border:"#86efac", fullday:true},
+  holiday:       {icon:"🎉", label:"Festivo",         color:"#f5820d", bg:"#fff7ed", border:"#fed7aa", fullday:true},
+  sick:          {icon:"🤒", label:"Baja/Enfermedad", color:"#f04438", bg:"#fef2f2", border:"#fecaca", fullday:true},
+  off:           {icon:"📴", label:"Sin disponibilidad", color:"#9aa0b8", bg:"#f0f2f7", border:"#cdd3e0", fullday:true},
 };
+
+function isFullDayOff(dateStr) {
+  return state.blocks.some(b => BLOCK_META[b.tipo]?.fullday && (
+    b.fecha === dateStr ||
+    (b.fechaFin && dateStr >= b.fecha && dateStr <= b.fechaFin)
+  ));
+}
 const PROJ_COLORS=["#3b6ff5","#7c5cfc","#f5820d","#16c784","#f5c518","#f04438","#06b6d4"];
 
 const H_START  = 7;
@@ -787,7 +805,7 @@ function getWeekStart(date) {
   const day = d.getDay(); // 0=Sun
   const diff = day===0 ? -6 : 1-day;
   d.setDate(d.getDate()+diff);
-  d.setHours(0,0,0,0);
+  d.setHours(12,0,0,0); // use noon to avoid DST issues
   return d;
 }
 
@@ -795,7 +813,8 @@ function getWeekDays(start) {
   return Array.from({length:5},(_,i)=>{
     const d=new Date(start);
     d.setDate(d.getDate()+i);
-    return d.toISOString().split("T")[0];
+    // Use local date (not UTC) to avoid timezone offset issues
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
   });
 }
 
@@ -833,9 +852,10 @@ function calcPriority(task) {
 
 // ── Hours free per day ─────────────────────────────────────────────────────
 function getFreeHours(dateStr) {
+  if(isFullDayOff(dateStr)) return 0;
   const wh = getWorkHours(dateStr);
   const workTotal = wh.end - wh.start;
-  const blockedH = getBlocksForDay(dateStr).reduce((s,b)=>s+b.duracion,0);
+  const blockedH = getBlocksForDay(dateStr).filter(b=>!BLOCK_META[b.tipo]?.fullday).reduce((s,b)=>s+b.duracion,0);
   const plannedH = getPlannedForDay(dateStr).reduce((s,p)=>s+p.horas,0);
   return Math.max(0, workTotal - blockedH - plannedH);
 }
@@ -923,6 +943,7 @@ function autoPlaceFillTasks() {
   if(!fillTasks.length) return;
 
   days.forEach(d=>{
+    if(isFullDayOff(d)) return; // skip holidays/vacation
     const wh = getWorkHours(d);
 
     // Build list of busy intervals from blocks + non-fill planned tasks
@@ -1095,10 +1116,15 @@ function renderDayWeekStrip(){
     const hasMtg=getBlocksForDay(d).some(b=>b.tipo==="meeting");
     const hasPlan=getPlannedForDay(d).length>0;
     const sel=d===selectedDay, tod=isToday(d);
-    return `<div class="wsb-day${sel?" selected":""}${tod?" today":""}" onclick="selectDay('${d}')">
-      <div class="wsb-name">${names[i]}</div>
-      <div class="wsb-num">${d.split("-")[2]}</div>
-      ${(hasMtg||hasPlan)?`<div class="wsb-dot"></div>`:""}
+    const isDayOff=isFullDayOff(d);
+    const doffBlock=isDayOff?state.blocks.find(b=>BLOCK_META[b.tipo]?.fullday&&(b.fecha===d||(b.fechaFin&&d>=b.fecha&&d<=b.fechaFin))):null;
+    const doffMeta=doffBlock?BLOCK_META[doffBlock.tipo]:null;
+    return `<div class="wsb-day${sel?" selected":""}${tod?" today":""}${isDayOff?" dayoff":""}"
+      style="${isDayOff?`background:${doffMeta?.bg||"#f0f2f7"};border-color:${doffMeta?.border||"var(--border2)"}`:""}"
+      onclick="selectDay('${d}')">
+      <div class="wsb-name" style="${isDayOff?"color:"+doffMeta?.color:""}">${isDayOff?(doffMeta?.icon||"📴"):names[i]}</div>
+      <div class="wsb-num" style="${isDayOff?"text-decoration:line-through;color:var(--text4)":""}">${d.split("-")[2]}</div>
+      ${!isDayOff&&(hasMtg||hasPlan)?`<div class="wsb-dot"></div>`:""}
     </div>`;
   }).join("");
 }
@@ -1137,6 +1163,19 @@ function renderDayTimeline(){
     hours.map(h=>`<div class="tl-time-slot">${String(h).padStart(2,"0")}:00</div>`).join("");
 
   const grid=document.getElementById("dayTlGrid");
+
+  // Full day off banner
+  if(isFullDayOff(selectedDay)){
+    const dayOffBlock=state.blocks.find(b=>BLOCK_META[b.tipo]?.fullday&&(b.fecha===selectedDay||(b.fechaFin&&selectedDay>=b.fecha&&selectedDay<=b.fechaFin)));
+    const m=dayOffBlock?BLOCK_META[dayOffBlock.tipo]:BLOCK_META.off;
+    grid.innerHTML=`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;background:repeating-linear-gradient(45deg,${m.bg},${m.bg} 10px,rgba(255,255,255,0.5) 10px,rgba(255,255,255,0.5) 20px);z-index:10;border-left:4px solid ${m.border||m.color}">
+      <div style="font-size:32px">${m.icon}</div>
+      <div style="font-size:14px;font-weight:700;color:${m.color}">${dayOffBlock?.titulo||m.label}</div>
+      <div style="font-size:11px;color:var(--text3)">Día no laborable</div>
+    </div>`+hours.map(()=>`<div class="tl-hour-row"><div class="tl-half"></div></div>`).join("");
+    return;
+  }
+
   grid.innerHTML=hours.map(()=>`<div class="tl-hour-row"><div class="tl-half"></div></div>`).join("");
 
   // Work zone
@@ -1315,11 +1354,18 @@ function renderWeekHeaders(days){
       const usedPct=Math.min(100,((workH-free)/workH)*100);
       const color=usedPct>90?"var(--red)":usedPct>70?"var(--orange)":"var(--accent)";
       const isOff=isOfficeDay(d);
-      return `<div class="week-day-header${isToday(d)?" today":""}" onclick="scrollToHour(${wh.start})">
-        <div class="wdh-name">${names[i]}${isOff?" 🏢":""}</div>
-        <div class="wdh-num">${date.getDate()}</div>
-        <div class="wdh-load"><div class="wdh-load-fill" style="width:${usedPct}%;background:${color}"></div></div>
-        <div style="font-size:9px;color:var(--text4);margin-top:2px">${free.toFixed(1)}h libre</div>
+      const isDayOff=isFullDayOff(d);
+      const dayOffBlock=isDayOff?state.blocks.find(b=>BLOCK_META[b.tipo]?.fullday&&(b.fecha===d||(b.fechaFin&&d>=b.fecha&&d<=b.fechaFin))):null;
+      const dayOffMeta=dayOffBlock?BLOCK_META[dayOffBlock.tipo]:null;
+      return `<div class="week-day-header${isToday(d)?" today":""}" onclick="scrollToHour(${wh.start})"
+        style="${isDayOff?`background:${dayOffMeta?.bg||"#f0f2f7"};opacity:0.75`:""}" >
+        <div class="wdh-name">${isDayOff?(dayOffMeta?.icon||"📴"):names[i]+(isOff?" 🏢":"")}</div>
+        <div class="wdh-num" style="${isDayOff?"text-decoration:line-through;color:var(--text4)":""}">${date.getDate()}</div>
+        ${isDayOff
+          ? `<div style="font-size:9px;font-weight:600;margin-top:4px;color:${dayOffMeta?.color||"var(--text3)"}">${dayOffBlock?.titulo||dayOffMeta?.label||"Libre"}</div>`
+          : `<div class="wdh-load"><div class="wdh-load-fill" style="width:${usedPct}%;background:${color}"></div></div>
+             <div style="font-size:9px;color:var(--text4);margin-top:2px">${free.toFixed(1)}h libre</div>`
+        }
       </div>`;
     }).join("");
 }
@@ -1711,15 +1757,26 @@ function onBlockTypeChange(){
   const tipo=document.getElementById("bTipo").value;
   const isMeeting=tipo==="meeting";
   const isPersonal=["lunch","transport_in","transport_out","personal"].includes(tipo);
-  document.getElementById("bTituloField").style.display=tipo==="personal"||isMeeting?"block":"none";
+  const isFullDay=["vacation","holiday","sick","off"].includes(tipo);
+  document.getElementById("bTituloField").style.display=tipo==="personal"||isMeeting||isFullDay?"block":"none";
   document.getElementById("bMeetTipoField").style.display=isMeeting?"block":"none";
   document.getElementById("bProyectoField").style.display=isMeeting?"block":"none";
   document.getElementById("bDescField").style.display=isMeeting||tipo==="personal"?"block":"none";
   document.getElementById("bRecurrenteField").style.display=isPersonal?"block":"none";
-  // Set default title for personal types
+  document.getElementById("bFechaFinField").style.display=isFullDay?"block":"none";
+  // Hora/duracion fields hidden for full day types
+  const horaRow=document.getElementById("bHora")?.closest(".field");
+  const durRow=document.getElementById("bDuracion")?.closest(".field");
+  if(horaRow) horaRow.style.display=isFullDay?"none":"block";
+  if(durRow)  durRow.style.display=isFullDay?"none":"block";
+  // Set default title
   if(tipo==="lunch")         document.getElementById("bTitulo").value="Comida";
   if(tipo==="transport_in")  document.getElementById("bTitulo").value="Trayecto ida";
   if(tipo==="transport_out") document.getElementById("bTitulo").value="Trayecto vuelta";
+  if(tipo==="vacation")      document.getElementById("bTitulo").value="Vacaciones";
+  if(tipo==="holiday")       document.getElementById("bTitulo").value="Festivo";
+  if(tipo==="sick")          document.getElementById("bTitulo").value="Baja";
+  if(tipo==="off")           document.getElementById("bTitulo").value="Sin disponibilidad";
 }
 
 function editBlock(id){
@@ -1728,6 +1785,7 @@ function editBlock(id){
   document.getElementById("blockModalTitle").textContent="Editar bloque";
   document.getElementById("bTipo").value     =b.tipo;
   document.getElementById("bFecha").value    =b.fecha;
+  document.getElementById("bFechaFin").value =b.fechaFin||"";
   document.getElementById("bDuracion").value =b.duracion;
   document.getElementById("bRecurrente").value=b.recurrente||"none";
   document.getElementById("bMeetTipo").value =b.meetTipo||"remota";
@@ -1774,12 +1832,14 @@ function saveBlock(){
   const needsTitle=tipo==="personal"||isMeeting;
   const titulo=needsTitle?document.getElementById("bTitulo").value.trim():(BLOCK_META[tipo]?.label||tipo);
   if(isMeeting&&!titulo){ toast("El título es obligatorio","err"); return; }
+  const isFullDay = ["vacation","holiday","sick","off"].includes(tipo);
   const data={
     tipo, titulo,
     fecha:      document.getElementById("bFecha").value||TODAY,
-    horaInicio: parseFloat(document.getElementById("bHora").value),
-    duracion:   parseFloat(document.getElementById("bDuracion").value),
-    recurrente: document.getElementById("bRecurrente").value,
+    fechaFin:   isFullDay ? (document.getElementById("bFechaFin").value||"") : "",
+    horaInicio: isFullDay ? 0 : parseFloat(document.getElementById("bHora").value),
+    duracion:   isFullDay ? 24 : parseFloat(document.getElementById("bDuracion").value),
+    recurrente: isFullDay ? "none" : document.getElementById("bRecurrente").value,
     meetTipo:   document.getElementById("bMeetTipo").value,
     proyecto:   document.getElementById("bProyecto").value.trim(),
     descripcion:document.getElementById("bDesc").value.trim(),
