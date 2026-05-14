@@ -1282,12 +1282,13 @@ function onDrop(e, dateStr){
   e.currentTarget.classList.remove("drag-over");
   if(!dragData) return;
 
-  // Calculate drop hour from mouse position, accounting for scroll correctly
+  // Calculate drop hour from mouse position
+  // colRect.top is in viewport coords (already accounts for scroll visually)
+  // We need position relative to the absolute top of the column (scroll included)
   const container = document.getElementById("timelineContainer");
-  const rect = container.getBoundingClientRect();
-  // We need position relative to the tl-day-col, not the container
-  const colRect = e.currentTarget.getBoundingClientRect();
-  const relY = e.clientY - colRect.top + container.scrollTop;
+  const containerRect = container.getBoundingClientRect();
+  // relY = distance from top of scrollable content to mouse
+  const relY = (e.clientY - containerRect.top) + container.scrollTop;
   let dropHour = snapHour(H_START + relY / HOUR_PX);
   dropHour = Math.max(H_START, Math.min(H_END - 0.5, dropHour));
 
