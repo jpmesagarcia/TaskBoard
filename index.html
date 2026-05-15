@@ -904,11 +904,12 @@ function computeAlerts() {
     }
   });
 
-  // Overloaded days
+  // Overloaded days (skip full day off)
   days.forEach(d=>{
+    if(isFullDayOff(d)) return;
     const wh=getWorkHours(d);
     const workTotal=wh.end-wh.start;
-    const blockedH=getBlocksForDay(d).reduce((s,b)=>s+b.duracion,0);
+    const blockedH=getBlocksForDay(d).filter(b=>!BLOCK_META[b.tipo]?.fullday).reduce((s,b)=>s+b.duracion,0);
     const plannedH=getPlannedForDay(d).reduce((s,p)=>s+p.horas,0);
     if(blockedH+plannedH>workTotal) {
       alerts.push({type:"yellow", title:`🟡 Día sobreocupado: ${new Date(d+"T12:00:00").toLocaleDateString("es-ES",{weekday:"short",day:"numeric"})}`, sub:`${(blockedH+plannedH).toFixed(1)}h asignadas de ${workTotal}h laborables`});
