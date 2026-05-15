@@ -493,7 +493,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 <nav class="nav">
   <button class="nav-tab active" onclick="switchTab('dia',this)">📅 Mi día</button>
   <button class="nav-tab"        onclick="switchTab('semana',this)">📆 Semana</button>
-  <button class="nav-tab"        onclick="switchTab('lista',this)">📋 Listado</button>
+  <button class="nav-tab"        onclick="switchTab('lista',this)">📋 Trabajo</button>
+  <button class="nav-tab"        onclick="switchTab('personal',this)">🏠 Personal</button>
   <button class="nav-tab"        onclick="switchTab('resumen',this)">📊 Resumen</button>
   <div class="nav-right" id="navRight">
     <button class="btn btn-ghost btn-sm" onclick="clearFillTasks()" id="btnClearFill" title="Eliminar auto-relleno" style="display:none">✕ Relleno</button>
@@ -552,8 +553,15 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
       </div>
       <!-- Day backlog -->
       <div style="overflow-y:auto;display:flex;flex-direction:column">
-        <div style="padding:12px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Sin planificar</div>
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Sin planificar</div>
         <div id="dayBacklog" style="flex:1;overflow-y:auto;padding:8px"></div>
+        <div style="border-top:1px solid var(--border)">
+          <div style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;display:flex;align-items:center;justify-content:space-between">
+            🏠 Personal hoy
+            <span id="personalTodayCount" style="background:var(--surface2);padding:1px 7px;border-radius:10px;font-size:10px;color:var(--text4)">0</span>
+          </div>
+          <div id="personalTodayList" style="max-height:200px;overflow-y:auto;padding:0 8px 8px"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -601,6 +609,33 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
           <th>Tipo</th><th>Esfuerzo</th><th>Deadline</th><th>Prioridad</th><th></th>
         </tr></thead>
         <tbody id="taskBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── PERSONAL ── -->
+  <div id="tab-personal" style="display:none">
+    <div class="filters">
+      <input  class="fi" id="pSearchInput" placeholder="🔍 Buscar..." oninput="renderPersonal()" style="width:200px">
+      <select class="fi" id="pFilterPri" onchange="renderPersonal()" style="width:170px">
+        <option value="all">Todas las prioridades</option>
+        <option value="*">★ Urgente</option>
+        <option value="A">A — Próximamente</option>
+        <option value="C">C — Cuando pueda</option>
+        <option value="D">D — Dependencia</option>
+      </select>
+      <select class="fi" id="pFilterGrupo" onchange="renderPersonal()" style="width:140px">
+        <option value="all">Todos los grupos</option>
+      </select>
+      <span class="filter-count" id="pFilterCount"></span>
+      <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openPersonalModal()">+ Tarea personal</button>
+    </div>
+    <div class="card" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);overflow:auto;height:calc(100vh - 220px);box-shadow:var(--shadow-sm)">
+      <table class="task-table">
+        <thead><tr>
+          <th>Grupo</th><th>Subgrupo</th><th>Tarea</th><th>Prioridad</th><th></th>
+        </tr></thead>
+        <tbody id="personalBody"></tbody>
       </table>
     </div>
   </div>
@@ -732,6 +767,32 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   </div>
 </div>
 
+<!-- Personal Task Modal -->
+<div class="modal-overlay" id="personalModal">
+  <div class="modal">
+    <h2 id="personalModalTitle">Nueva tarea personal</h2>
+    <div class="modal-grid">
+      <div class="field"><label>Grupo</label><input id="pGrupo" list="dlPGrupo" placeholder="Casa, Familia, Pisos..."></div>
+      <div class="field"><label>Subgrupo</label><input id="pSubgrupo" list="dlPSubgrupo" placeholder="Jardín, Niños..."></div>
+      <div class="field full"><label>Tarea *</label><input id="pTarea" placeholder="Descripción de la tarea"></div>
+      <div class="field"><label>Prioridad</label>
+        <select id="pPrioridad">
+          <option value="*">★ Urgente</option>
+          <option value="A">A — Próximamente</option>
+          <option value="C" selected>C — Cuando pueda</option>
+          <option value="D">D — Dependencia</option>
+        </select>
+      </div>
+    </div>
+    <datalist id="dlPGrupo"></datalist>
+    <datalist id="dlPSubgrupo"></datalist>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeModal('personalModal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="savePersonalTask()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -781,10 +842,11 @@ const WORK_HOURS = {
 
 // ── State ──────────────────────────────────────────────────────────────────
 let state = {
-  tasks:    [],  // {id, grupo, proyecto, subgrupo, tarea, tipo, esfuerzo, deadline, dependencia, planificacion:[{fecha,horaInicio,horas}]}
-  blocks:   [],  // {id, tipo, titulo, fecha, horaInicio, duracion, recurrente, meetTipo, proyecto, descripcion}
-  cap:      8,
-  officedays: [], // dates when going to office
+  tasks:        [],  // trabajo: {id, grupo, proyecto, subgrupo, tarea, tipo, esfuerzo, deadline, dependencia, planificacion:[{fecha,horaInicio,horas}]}
+  blocks:       [],  // {id, tipo, titulo, fecha, horaInicio, duracion, recurrente, meetTipo, proyecto, descripcion}
+  personalTasks:[], // personal: {id, grupo, subgrupo, tarea, prioridad}
+  cap:          8,
+  officedays:   [],
 };
 let lastSync  = null;
 let dirty     = false;
@@ -1058,10 +1120,11 @@ function importJSON(e){
   r.readAsText(file); e.target.value="";
 }
 function applyData(data){
-  if(data.tasks)      state.tasks=data.tasks;
-  if(data.blocks)     state.blocks=data.blocks;
-  if(data.cap)        { state.cap=data.cap; const s=document.getElementById("capSelect"); if(s) s.value=data.cap; }
-  if(data.officedays) state.officedays=data.officedays;
+  if(data.tasks)         state.tasks=data.tasks;
+  if(data.blocks)        state.blocks=data.blocks;
+  if(data.personalTasks) state.personalTasks=data.personalTasks;
+  if(data.cap)           { state.cap=data.cap; const s=document.getElementById("capSelect"); if(s) s.value=data.cap; }
+  if(data.officedays)    state.officedays=data.officedays;
 }
 
 // ── Local storage ──────────────────────────────────────────────────────────
@@ -1088,10 +1151,11 @@ function switchTab(id,btn){
   document.getElementById("btnClearFill").style.display = showFill?"":"none";
   const wn = document.getElementById("weekNav");
   if(wn) wn.style.display = showFill?"flex":"none";
-  if(id==="lista")   renderList();
-  if(id==="resumen") renderResumen();
-  if(id==="semana")  renderWeekView();
-  if(id==="dia")     renderDayView();
+  if(id==="lista")    renderList();
+  if(id==="personal") renderPersonal();
+  if(id==="resumen")  renderResumen();
+  if(id==="semana")   renderWeekView();
+  if(id==="dia")      renderDayView();
 }
 
 // ── Cloud menu ──────────────────────────────────────────────────────────────
@@ -1240,6 +1304,36 @@ function renderDayBacklog(){
       e.dataTransfer.effectAllowed="move";
     });
   });
+
+  // Render personal tasks for today (★ and A)
+  renderPersonalToday();
+}
+
+function renderPersonalToday(){
+  const list = document.getElementById("personalTodayList");
+  const countEl = document.getElementById("personalTodayCount");
+  if(!list) return;
+
+  const tasks = (state.personalTasks||[]).filter(t=>t.prioridad==="*"||t.prioridad==="A")
+    .sort((a,b)=>{ const o={"*":0,"A":1}; return (o[a.prioridad]??9)-(o[b.prioridad]??9); });
+
+  if(countEl) countEl.textContent=tasks.length;
+
+  if(!tasks.length){
+    list.innerHTML=`<div style="padding:8px 4px;font-size:11px;color:var(--text4);font-style:italic">Sin tareas urgentes 🎉</div>`;
+    return;
+  }
+
+  list.innerHTML=tasks.map(t=>{
+    const meta=getPersPri(t.prioridad);
+    return `<div style="padding:7px 10px;border-radius:8px;margin-bottom:4px;background:var(--surface2);border-left:3px solid ${meta.color};display:flex;align-items:center;gap:8px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.tarea}</div>
+        <div style="font-size:10px;color:var(--text4);margin-top:1px">${t.grupo}${t.subgrupo?" · "+t.subgrupo:""}</div>
+      </div>
+      <button onclick="completePersonalTask(${t.id})" style="background:none;border:none;cursor:pointer;color:var(--green);font-size:14px;flex-shrink:0" title="Completada">✓</button>
+    </div>`;
+  }).join("");
 }
 
 function onDayDragOver(e){ e.preventDefault(); e.currentTarget.style.background="rgba(59,111,245,0.03)"; }
@@ -1327,10 +1421,12 @@ function updateCap(){ state.cap=parseInt(document.getElementById("capSelect").va
 
 // ── Header pills ───────────────────────────────────────────────────────────
 function renderPills(){
+  const personalUrgent=(state.personalTasks||[]).filter(t=>t.prioridad==="*").length;
   document.getElementById("headerPills").innerHTML=PRIORITIES.map(p=>{
     const n=state.tasks.filter(t=>calcPriority(t)===p.code).length;
-    return `<div class="h-pill" onclick="switchTab('lista',document.querySelector('.nav-tab:nth-child(2)'))"><span class="p-num" style="color:${p.color}">${n}</span><span class="p-lbl">${p.code==="*"?"★ Hoy":p.label}</span></div>`;
-  }).join("");
+    return `<div class="h-pill" onclick="switchTab('lista',document.querySelector('.nav-tab:nth-child(3)'))"><span class="p-num" style="color:${p.color}">${n}</span><span class="p-lbl">${p.code==="*"?"★ Hoy":p.label}</span></div>`;
+  }).join("")+
+  (personalUrgent>0?`<div class="h-pill" onclick="switchTab('personal',document.querySelector('.nav-tab:nth-child(4)'))"><span class="p-num" style="color:#f04438">${personalUrgent}</span><span class="p-lbl">🏠 Urgente</span></div>`:"");
 }
 
 // ── Week view ──────────────────────────────────────────────────────────────
@@ -1969,6 +2065,142 @@ function renderResumen(){
 }
 
 // ── Render all ─────────────────────────────────────────────────────────────
+// ── Personal tasks ────────────────────────────────────────────────────────
+const PERSONAL_PRIORITIES = [
+  {code:"*", label:"Urgente",      color:"#f04438", bg:"#fef2f2", border:"#fecaca"},
+  {code:"A", label:"Próximamente", color:"#f5820d", bg:"#fff7ed", border:"#fed7aa"},
+  {code:"C", label:"Cuando pueda", color:"#3b6ff5", bg:"#eff4ff", border:"#c7d7fd"},
+  {code:"D", label:"Dependencia",  color:"#7c5cfc", bg:"#f5f3ff", border:"#ddd6fe"},
+];
+const getPersPri = c => PERSONAL_PRIORITIES.find(p=>p.code===c)||PERSONAL_PRIORITIES[2];
+let editingPersonal = null;
+let nextPersonalId  = 5000;
+
+function newPersonalId(){
+  let mx=5000;
+  (state.personalTasks||[]).forEach(t=>{ if(t.id>mx) mx=t.id; });
+  return mx+1;
+}
+
+function openPersonalModal(task){
+  editingPersonal = task||null;
+  document.getElementById("personalModalTitle").textContent = task?"Editar tarea personal":"Nueva tarea personal";
+  document.getElementById("pGrupo").value    = task?.grupo||"";
+  document.getElementById("pSubgrupo").value = task?.subgrupo||"";
+  document.getElementById("pTarea").value    = task?.tarea||"";
+  document.getElementById("pPrioridad").value= task?.prioridad||"C";
+  // Datalists
+  const grupos   = [...new Set((state.personalTasks||[]).map(t=>t.grupo).filter(Boolean))];
+  const subgrupos= [...new Set((state.personalTasks||[]).map(t=>t.subgrupo).filter(Boolean))];
+  document.getElementById("dlPGrupo").innerHTML   = grupos.map(g=>`<option value="${g}">`).join("");
+  document.getElementById("dlPSubgrupo").innerHTML= subgrupos.map(g=>`<option value="${g}">`).join("");
+  openModal("personalModal");
+}
+
+function savePersonalTask(){
+  const tarea = document.getElementById("pTarea").value.trim();
+  if(!tarea){ toast("El campo Tarea es obligatorio","err"); return; }
+  const data = {
+    grupo:    document.getElementById("pGrupo").value.trim(),
+    subgrupo: document.getElementById("pSubgrupo").value.trim(),
+    tarea,
+    prioridad:document.getElementById("pPrioridad").value,
+  };
+  if(!state.personalTasks) state.personalTasks=[];
+  if(editingPersonal){
+    Object.assign(editingPersonal, data);
+  } else {
+    state.personalTasks.push({...data, id:newPersonalId()});
+  }
+  closeModal("personalModal"); markDirty(); renderAll();
+  toast(editingPersonal?"✓ Tarea actualizada":"✓ Tarea personal añadida");
+}
+
+function completePersonalTask(id){
+  state.personalTasks=(state.personalTasks||[]).filter(x=>x.id!==id);
+  markDirty(); renderAll(); toast("✓ Tarea completada");
+}
+
+function personalPriBadge(code, id){
+  const p=getPersPri(code);
+  return `<span class="pri-badge" style="color:${p.color};background:${p.bg};border:1px solid ${p.border}" onclick="togglePersonalPicker(event,${id})">
+    ${code==="*"?"★":code} ${p.label} ▾
+    <div class="pri-picker" id="ppicker-${id}" style="display:none">
+      ${PERSONAL_PRIORITIES.map(pp=>`<div class="pri-opt${pp.code===code?" active":""}" style="color:${pp.color}"
+        onclick="changePersonalPri(event,${id},'${pp.code}')">
+        <b>${pp.code==="*"?"★":pp.code}</b> ${pp.label}
+      </div>`).join("")}
+    </div>
+  </span>`;
+}
+function togglePersonalPicker(e,id){
+  e.stopPropagation();
+  const el=document.getElementById("ppicker-"+id);
+  if(!el) return;
+  const was=el.style.display!=="none";
+  document.querySelectorAll(".pri-picker").forEach(p=>p.style.display="none");
+  if(!was) el.style.display="block";
+}
+function changePersonalPri(e,id,code){
+  e.stopPropagation();
+  const t=(state.personalTasks||[]).find(t=>t.id===id); if(!t) return;
+  t.prioridad=code; markDirty(); renderAll();
+  document.querySelectorAll(".pri-picker").forEach(p=>p.style.display="none");
+}
+
+function renderPersonal(){
+  const q     = document.getElementById("pSearchInput")?.value.toLowerCase()||"";
+  const pri   = document.getElementById("pFilterPri")?.value||"all";
+  const grupo = document.getElementById("pFilterGrupo")?.value||"all";
+  const tasks = state.personalTasks||[];
+
+  const grupos=[...new Set(tasks.map(t=>t.grupo).filter(Boolean))];
+  const gSel=document.getElementById("pFilterGrupo");
+  if(gSel){
+    const cur=gSel.value;
+    gSel.innerHTML=`<option value="all">Todos los grupos</option>`+grupos.map(g=>`<option value="${g}"${g===cur?" selected":""}>${g}</option>`).join("");
+  }
+
+  const filtered=tasks.filter(t=>{
+    if(pri!=="all"&&t.prioridad!==pri) return false;
+    if(grupo!=="all"&&t.grupo!==grupo) return false;
+    if(q&&!t.tarea.toLowerCase().includes(q)&&!(t.grupo||"").toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a,b)=>{
+    const o={"*":0,"A":1,"C":2,"D":3};
+    return (o[a.prioridad]??9)-(o[b.prioridad]??9);
+  });
+
+  const countEl=document.getElementById("pFilterCount");
+  if(countEl) countEl.textContent=`${filtered.length} de ${tasks.length} tareas`;
+
+  const body=document.getElementById("personalBody");
+  if(!body) return;
+  if(!filtered.length){
+    body.innerHTML=`<tr><td colspan="5" style="text-align:center;padding:48px;color:var(--text4)">🎉 Sin tareas</td></tr>`;
+    return;
+  }
+
+  const orderMap={"*":0,"A":1,"C":2,"D":3};
+  // Group by prioridad for visual separation
+  body.innerHTML=filtered.map(t=>{
+    const meta=getPersPri(t.prioridad);
+    return `<tr class="task-row" style="border-left:3px solid ${meta.color}">
+      <td><span style="font-size:11px;color:var(--text3);font-weight:600">${t.grupo||"—"}</span></td>
+      <td><span style="font-size:11px;color:var(--text4)">${t.subgrupo||"—"}</span></td>
+      <td><span style="font-weight:500">${t.tarea}</span></td>
+      <td style="text-align:center;position:relative">${personalPriBadge(t.prioridad,t.id)}</td>
+      <td style="text-align:center">
+        <div style="display:flex;gap:4px;justify-content:center">
+          <button class="btn btn-ghost btn-xs" style="color:var(--green)" onclick="completePersonalTask(${t.id})" title="Completada">✓</button>
+          <button class="btn btn-ghost btn-xs" onclick="openPersonalModal((state.personalTasks||[]).find(x=>x.id===${t.id}))">✏️</button>
+          <button class="btn btn-danger btn-xs" onclick="confirmDelete('¿Eliminar tarea personal?',()=>{state.personalTasks=(state.personalTasks||[]).filter(x=>x.id!==${t.id});markDirty();renderAll();toast('Tarea eliminada')})">🗑</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
 function renderAll(){
   renderPills();
   renderAlerts();
@@ -1979,7 +2211,8 @@ function renderAll(){
   const label=activeTab.textContent;
   if(label.includes("Mi día"))  renderDayView();
   if(label.includes("Semana"))  renderWeekView();
-  if(label.includes("Listado")) renderList();
+  if(label.includes("Trabajo")) renderList();
+  if(label.includes("Personal"))renderPersonal();
   if(label.includes("Resumen")) renderResumen();
 }
 
