@@ -445,6 +445,12 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   .header-pills { display: none; }
   .backlog-panel { display: none; }
 }
+@media(max-width:1100px) {
+  #dayKpis { grid-template-columns: repeat(3,1fr) !important; }
+}
+@media(max-width:800px) {
+  #dayKpis { grid-template-columns: repeat(2,1fr) !important; }
+}
 @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
 .fade-in { animation: fadeIn .2s ease; }
 </style>
@@ -522,46 +528,52 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
       <button class="btn btn-ghost btn-sm" onclick="nextWeek();selectedDay=getWeekDays(weekStart)[0];renderDayView()">→</button>
     </div>
 
-    <!-- Day header -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r2) var(--r2) 0 0;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--shadow-sm)">
-      <div>
-        <div style="font-size:15px;font-weight:700" id="dayViewTitle">—</div>
-        <div style="font-size:11px;color:var(--text4);margin-top:2px" id="dayViewSub">—</div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <div style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:5px">
-          <select id="capSelect" onchange="updateCap()" style="border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;font-family:inherit;background:var(--surface2)">
-            <option>4</option><option>5</option><option>6</option><option>7</option>
-            <option selected>8</option><option>9</option><option>10</option>
-          </select>
-          <span>h disponibles</span>
-        </div>
-        <button class="btn btn-ghost btn-sm" onclick="clearFillTasks()">✕ Relleno</button>
-        <button class="btn btn-primary btn-sm" onclick="triggerAutoFill()">🔄 Auto-rellenar</button>
-      </div>
-    </div>
+    <!-- KPI bar -->
+    <div id="dayKpis" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px"></div>
 
-    <!-- Day timeline + backlog -->
-    <div style="display:grid;grid-template-columns:1fr 260px;gap:0;background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--r2) var(--r2);box-shadow:var(--shadow-sm);height:calc(100vh - 220px)">
-      <div style="overflow-y:auto;border-right:1px solid var(--border)" id="dayTimelineWrap">
-        <div style="display:flex">
-          <div class="tl-time-col" id="dayTlLabels"></div>
-          <div style="flex:1;position:relative" id="dayTlGrid"
-            ondragover="onDayDragOver(event)" ondragleave="onDayDragLeave(event)" ondrop="onDayDrop(event)">
+    <!-- Day header + timeline + panels -->
+    <div style="display:grid;grid-template-columns:480px 1fr 240px;gap:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);box-shadow:var(--shadow-sm);height:calc(100vh - 230px)">
+
+      <!-- Timeline column -->
+      <div style="display:flex;flex-direction:column;border-right:1px solid var(--border)">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+          <div>
+            <div style="font-size:14px;font-weight:700" id="dayViewTitle">—</div>
+            <div style="font-size:11px;color:var(--text4);margin-top:1px" id="dayViewSub">—</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <select id="capSelect" onchange="updateCap()" style="border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:11px;font-family:inherit;background:var(--surface2)">
+              <option>4</option><option>5</option><option>6</option><option>7</option>
+              <option selected>8</option><option>9</option><option>10</option>
+            </select>
+            <span style="font-size:11px;color:var(--text4)">h</span>
+            <button class="btn btn-ghost btn-sm" onclick="clearFillTasks()">✕</button>
+            <button class="btn btn-primary btn-sm" onclick="triggerAutoFill()">🔄</button>
+          </div>
+        </div>
+        <div style="overflow-y:auto;flex:1" id="dayTimelineWrap">
+          <div style="display:flex">
+            <div class="tl-time-col" id="dayTlLabels"></div>
+            <div style="flex:1;position:relative" id="dayTlGrid"
+              ondragover="onDayDragOver(event)" ondragleave="onDayDragLeave(event)" ondrop="onDayDrop(event)">
+            </div>
           </div>
         </div>
       </div>
-      <!-- Day backlog -->
-      <div style="overflow-y:auto;display:flex;flex-direction:column">
-        <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Sin planificar</div>
+
+      <!-- Work backlog -->
+      <div style="display:flex;flex-direction:column;border-right:1px solid var(--border)">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;flex-shrink:0">💼 Trabajo pendiente</div>
         <div id="dayBacklog" style="flex:1;overflow-y:auto;padding:8px"></div>
-        <div style="border-top:1px solid var(--border)">
-          <div style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;display:flex;align-items:center;justify-content:space-between">
-            🏠 Personal hoy
-            <span id="personalTodayCount" style="background:var(--surface2);padding:1px 7px;border-radius:10px;font-size:10px;color:var(--text4)">0</span>
-          </div>
-          <div id="personalTodayList" style="max-height:200px;overflow-y:auto;padding:0 8px 8px"></div>
+      </div>
+
+      <!-- Personal panel -->
+      <div style="display:flex;flex-direction:column">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+          🏠 Personal
+          <span id="personalTodayCount" style="background:var(--surface2);padding:1px 7px;border-radius:10px;font-size:10px;color:var(--text4)">0</span>
         </div>
+        <div id="personalTodayList" style="flex:1;overflow-y:auto;padding:8px"></div>
       </div>
     </div>
   </div>
@@ -643,10 +655,11 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   <!-- ── RESUMEN ── -->
   <div id="tab-resumen" style="display:none">
     <div class="week-cards" id="weekCards"></div>
-    <div class="proj-card">
-      <div class="proj-card-title">Carga por proyecto (horas planificadas)</div>
+    <div class="proj-card" style="margin-bottom:16px">
+      <div class="proj-card-title">💼 Carga por proyecto (horas planificadas)</div>
       <div id="projRows"></div>
     </div>
+    <div id="personalResumen"></div>
   </div>
 
 </div>
@@ -1198,6 +1211,7 @@ function selectDay(d){ selectedDay=d; renderDayView(); }
 
 function renderDayView(){
   renderDayWeekStrip();
+  renderDayKpis();
   const date=new Date(selectedDay+"T12:00:00");
   const lbl=date.toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"});
   document.getElementById("dayViewTitle").innerHTML=
@@ -1215,6 +1229,39 @@ function renderDayView(){
 
   renderDayTimeline();
   renderDayBacklog();
+}
+
+function renderDayKpis(){
+  const el=document.getElementById("dayKpis"); if(!el) return;
+  const wh=getWorkHours(selectedDay);
+  const workH=wh.end-wh.start;
+  const mH=getBlocksForDay(selectedDay).filter(b=>b.tipo==="meeting").reduce((s,b)=>s+b.duracion,0);
+  const pBlockH=getBlocksForDay(selectedDay).filter(b=>b.tipo!=="meeting"&&!BLOCK_META[b.tipo]?.fullday).reduce((s,b)=>s+b.duracion,0);
+  const plannedH=getPlannedForDay(selectedDay).filter(p=>p.task.tipo!=="relleno").reduce((s,p)=>s+p.horas,0);
+  const fillH=getPlannedForDay(selectedDay).filter(p=>p.task.tipo==="relleno").reduce((s,p)=>s+p.horas,0);
+  const freeH=getFreeHours(selectedDay);
+  const isDayOff=isFullDayOff(selectedDay);
+
+  const workTasks=state.tasks.filter(t=>calcPriority(t)==="*").length;
+  const persUrgent=(state.personalTasks||[]).filter(t=>t.prioridad==="*").length;
+  const persTotal=(state.personalTasks||[]).length;
+
+  const kpis=[
+    { icon:"⏱", label:"Horas libres",    value: isDayOff?"—":freeH.toFixed(1)+"h",    color: isDayOff?"var(--text4)":freeH>3?"var(--green)":freeH>1?"var(--orange)":"var(--red)" },
+    { icon:"📅", label:"En reuniones",    value: isDayOff?"—":mH+"h",                  color:"var(--purple)" },
+    { icon:"📋", label:"Tareas hoy ★",   value: workTasks,                             color:"var(--red)" },
+    { icon:"🏠", label:"Personal urgente",value: persUrgent+" / "+persTotal,            color: persUrgent>0?"var(--orange)":"var(--green)" },
+    { icon:"🔋", label:"Ocupación",       value: isDayOff?"Festivo":Math.round(((workH-freeH)/workH)*100)+"%", color: isDayOff?"var(--text4)":freeH<1?"var(--red)":freeH<2?"var(--orange)":"var(--accent)" },
+  ];
+
+  el.innerHTML=kpis.map(k=>`
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:12px 14px;box-shadow:var(--shadow-sm);display:flex;align-items:center;gap:10px">
+      <div style="font-size:20px">${k.icon}</div>
+      <div>
+        <div style="font-size:18px;font-weight:700;color:${k.color};line-height:1">${k.value}</div>
+        <div style="font-size:10px;color:var(--text4);margin-top:2px">${k.label}</div>
+      </div>
+    </div>`).join("");
 }
 
 function renderDayTimeline(){
@@ -2062,6 +2109,76 @@ function renderResumen(){
       <div class="proj-bar-wrap"><div class="proj-bar-fill" style="width:${(h/maxH)*100}%;background:${PROJ_COLORS[i%PROJ_COLORS.length]}"></div></div>
       <div class="proj-h">${h}h</div>
     </div>`).join("");
+
+  // Personal summary
+  renderPersonalResumen();
+}
+
+function renderPersonalResumen(){
+  const tasks = state.personalTasks||[];
+  const el = document.getElementById("personalResumen");
+  if(!el) return;
+
+  const byPri = {"*":[],"A":[],"C":[],"D":[]};
+  tasks.forEach(t=>{ if(byPri[t.prioridad]) byPri[t.prioridad].push(t); });
+
+  const byGrupo = {};
+  tasks.forEach(t=>{ byGrupo[t.grupo||"Sin grupo"]=(byGrupo[t.grupo||"Sin grupo"]||0)+1; });
+  const sortedGrupos = Object.entries(byGrupo).sort((a,b)=>b[1]-a[1]);
+  const maxG = sortedGrupos[0]?.[1]||1;
+
+  el.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <!-- Priority breakdown -->
+      <div class="proj-card">
+        <div class="proj-card-title">🏠 Personal por prioridad</div>
+        ${[
+          {code:"*",label:"★ Urgente",      color:"#f04438"},
+          {code:"A", label:"A Próximamente",color:"#f5820d"},
+          {code:"C", label:"C Cuando pueda",color:"#3b6ff5"},
+          {code:"D", label:"D Dependencia", color:"#7c5cfc"},
+        ].map(p=>{
+          const n=byPri[p.code].length;
+          const pct=Math.round((n/Math.max(tasks.length,1))*100);
+          return `<div class="proj-row">
+            <div style="font-size:12px;color:${p.color};font-weight:600;width:130px;flex-shrink:0">${p.label}</div>
+            <div class="proj-bar-wrap"><div class="proj-bar-fill" style="width:${(n/Math.max(maxG,1))*100}%;background:${p.color}"></div></div>
+            <div class="proj-h">${n}</div>
+          </div>`;
+        }).join("")}
+        <div style="font-size:11px;color:var(--text4);margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+          Total: <b style="color:var(--text)">${tasks.length} tareas</b>
+        </div>
+      </div>
+
+      <!-- Group breakdown -->
+      <div class="proj-card">
+        <div class="proj-card-title">🏠 Personal por grupo</div>
+        ${sortedGrupos.map(([g,n],i)=>`
+          <div class="proj-row">
+            <div class="proj-name" title="${g}">${g}</div>
+            <div class="proj-bar-wrap"><div class="proj-bar-fill" style="width:${(n/maxG)*100}%;background:${PROJ_COLORS[i%PROJ_COLORS.length]}"></div></div>
+            <div class="proj-h">${n}</div>
+          </div>`).join("")}
+      </div>
+    </div>
+
+    <!-- Urgent personal tasks list -->
+    ${byPri["*"].length>0?`
+    <div class="proj-card" style="margin-top:16px">
+      <div class="proj-card-title">★ Tareas personales urgentes</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-top:4px">
+        ${byPri["*"].map(t=>`
+          <div style="padding:8px 12px;border-radius:8px;background:var(--surface2);border-left:3px solid #f04438;display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <div>
+              <div style="font-size:12px;font-weight:500">${t.tarea}</div>
+              <div style="font-size:10px;color:var(--text4);margin-top:1px">${t.grupo}${t.subgrupo?" · "+t.subgrupo:""}</div>
+            </div>
+            <button onclick="completePersonalTask(${t.id})" style="background:none;border:none;cursor:pointer;color:var(--green);font-size:14px;flex-shrink:0" title="Completada">✓</button>
+          </div>`).join("")}
+      </div>
+    </div>`:""}
+  `;
 }
 
 // ── Render all ─────────────────────────────────────────────────────────────
