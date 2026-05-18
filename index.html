@@ -1229,6 +1229,7 @@ function renderDayView(){
 
   renderDayTimeline();
   renderDayBacklog();
+  renderPersonalToday();
 }
 
 function renderDayKpis(){
@@ -1351,9 +1352,6 @@ function renderDayBacklog(){
       e.dataTransfer.effectAllowed="move";
     });
   });
-
-  // Render personal tasks for today (★ and A)
-  renderPersonalToday();
 }
 
 function renderPersonalToday(){
@@ -1654,6 +1652,22 @@ function renderBacklog(){
         <span class="bi-icon">📚</span>
         <span class="bi-name">${t.tarea}</span>
         <span class="bi-meta">${placed}/${t.esfuerzo}h</span>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+
+  // Personal ★ and A tasks
+  const personalUrgent=(state.personalTasks||[]).filter(t=>t.prioridad==="*"||t.prioridad==="A")
+    .sort((a,b)=>{ const o={"*":0,"A":1}; return (o[a.prioridad]??9)-(o[b.prioridad]??9); });
+  if(personalUrgent.length>0){
+    html+=`<div class="backlog-section"><div class="backlog-section-title" style="color:var(--text3)">🏠 Personal urgente / próximo</div>`;
+    personalUrgent.forEach(t=>{
+      const meta=getPersPri(t.prioridad);
+      html+=`<div class="backlog-item" style="border-color:${meta.color};cursor:default">
+        <span class="bi-name">${t.tarea}</span>
+        <span class="bi-meta" style="color:${meta.color}">${t.prioridad==="*"?"★":"A"}</span>
+        <button onclick="completePersonalTask(${t.id})" style="background:none;border:none;cursor:pointer;color:var(--green);font-size:13px;flex-shrink:0;padding:0 2px" title="Completada">✓</button>
       </div>`;
     });
     html+=`</div>`;
